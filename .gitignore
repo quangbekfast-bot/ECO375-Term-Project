@@ -13,9 +13,10 @@ News Data Set/cache/
 Twitter Data Set/full_dataset-release.csv
 
 # Large or intermediate build outputs (rebuild with the Panel Build scripts)
+# daily panels are pushed as compressed .csv.gz (the plain .csv is over GitHub's 100 MB limit)
 Panel Build/data/panel_daily_*.csv
-Panel Build/data/panel_weekly_*.csv
 Panel Build/data/panel_weekly_base.csv
+Panel Build/data/panel_weekly_full.csv
 Panel Build/data/news_ticker_day.csv
 Panel Build/data/news_daily_*.csv
 Panel Build/data/news_weekly_*.csv

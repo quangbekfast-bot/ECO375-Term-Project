@@ -16,7 +16,7 @@ Run from inside `Panel Build/`, in order:
 |---|---|---|
 | 1 | `01_news_ticker_day.py` | `news_ticker_day.csv`: articles per ticker per trading day, all years |
 | 2 | `02_build_weekly_panel.py` (batches, then `merge`) | `panel_weekly_base.csv`: weekly returns + attention, 2009-2023 |
-| 4 | `04_build_cross_section.py <year>` | `cross_section_<year>.csv`: annual cross-section (V1) |
+| 4 | `04_build_cross_section.py <year>` | `cross_section_<year>.csv`: annual cross-section (V1; superseded, outputs not kept) |
 | 5b | `05b_news_daily_panel_matched.py` | daily article counts on matched trading days, Mar 2018 - Feb 2020 |
 | 7 | `07_central_panel.py` (batches `0 3`, `1 3`, `2 3`, then `merge`) | `panel_{daily,weekly,monthly}_{raw,filtered}_2018-03_2020-02.csv`: central panels, news + prices |
 | 8 | `08_sort_by_time.py` | same files, sorted by time then ticker (one cross-section per period) |
@@ -27,11 +27,17 @@ Also: `headline_classifier.py` (keyword rules that flag price-report headlines),
 
 `raw` panels count all articles; `filtered` panels drop price-report headlines. Weekly = 7-day blocks (Sat-Fri), monthly = 30-day blocks, both starting 3 Mar 2018.
 
+## Data in this repo (`Panel Build/data/`)
+Central panels, Mar 2018 - Feb 2020, news counts + prices, sorted by time then ticker (one cross-section per period):
+- `panel_daily_{raw,filtered}_2018-03_2020-02.csv.gz`: compressed; unzip (7-Zip, or `pandas.read_csv` reads .gz directly)
+- `panel_weekly_{raw,filtered}_2018-03_2020-02.csv`
+- `panel_monthly_{raw,filtered}_2018-03_2020-02.csv`
+
 ## Data not in this repo
 GitHub limits files to 100 MB, so these stay local (shared separately, e.g. via cloud drive):
 - `News Data Set/`: `nasdaq_exteral_data.csv` (~23 GB), `All_external.csv` (~5.7 GB), `news_price_matched.csv` (~1.3 GB), `full_history.zip` (price files), `cache/`
 - `Twitter Data Set/full_dataset-release.csv`
-- Large panel outputs: daily and weekly panels, `panel_weekly_base.csv`, `news_ticker_day.csv`. Rebuild them with the scripts above, or get them from the shared drive.
+- Intermediate outputs: `panel_weekly_base.csv`, `news_ticker_day.csv`, the news-only `news_*` files. Rebuild them with the scripts above.
 
 Known data problems and fixes: `News Data Set/DATASET_ISSUES.md`.
 
