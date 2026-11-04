@@ -1,0 +1,29 @@
+C panel_daily: 2,689,101 ticker-days, 5,513 tickers
+  missing values per column: {'open': 25, 'high': 25, 'low': 25, 'close': 25, 'adj_close': 25, 'volume': 25}
+  open == 0: 0 | open missing but close present: 0
+  rows with ALL prices missing: 25 (tickers: ['BE', 'FNV', 'GOGL', 'HAL', 'MOS', 'MTA', 'NEM', 'ODFL'])
+
+B news_price_matched (one row per ticker-day with news): 555,339 ticker-days
+  missing values per column: {'open': 4, 'high': 4, 'low': 4, 'close': 4, 'adj_close': 4, 'volume': 4}
+  ticker-days of B found in C: 100.0000%
+  open      B vs C identical (to 4 dp): 100.0000% of 555,335
+  high      B vs C identical (to 4 dp): 100.0000% of 555,335
+  low       B vs C identical (to 4 dp): 100.0000% of 555,335
+  close     B vs C identical (to 4 dp): 100.0000% of 555,335
+  adj_close B vs C identical (to 4 dp): 100.0000% of 555,335
+  volume    B vs C identical (to 4 dp): 100.0000% of 555,335
+
+A original price files: 400 tickers checked, 194,947 ticker-days
+  missing values per column: {'open': 1, 'high': 1, 'low': 1, 'close': 1, 'adj_close': 1, 'volume': 1}
+  open == 0: 0 | duplicated dates: 0
+  rows only in A: 0 | only in C: 0
+  open      A vs C identical (to 4 dp): 100.0000%
+  high      A vs C identical (to 4 dp): 100.0000%
+  low       A vs C identical (to 4 dp): 100.0000%
+  close     A vs C identical (to 4 dp): 100.0000%
+  adj_close A vs C identical (to 4 dp): 100.0000%
+  volume    A vs C identical (to 4 dp): 100.0000%
+  the all-missing C rows for sampled tickers: 1; in A they are: {True: 1}
+
+panel_weekly: price columns = ['ret', 'open_start', 'high', 'low', 'close_end', 'adj_close_end', 'volume', 'dollar_volume'] | has an open column: True
+panel_monthly: price columns = ['ret', 'open_start', 'high', 'low', 'close_end', 'adj_close_end', 'volume', 'dollar_volume'] | has an open column: True

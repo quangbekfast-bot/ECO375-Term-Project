@@ -1,0 +1,261 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,tabularx,longtable,array}
+\usepackage{enumitem}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=NavyBlue,urlcolor=NavyBlue}
+\setlist{itemsep=2pt,topsep=4pt}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+
+% status tags
+\newcommand{\done}{\textcolor{ForestGreen}{\textbf{Built}}}
+\newcommand{\dl}{\textcolor{BurntOrange}{\textbf{Download}}}
+\newcommand{\todo}{\textcolor{BrickRed}{\textbf{Not started}}}
+\newcommand{\decide}{\textcolor{Purple}{\textbf{Decide}}}
+% evidence tags: what the data shows vs. what is a judgment call
+\newcommand{\data}{\textcolor{NavyBlue}{\textsf{[data]}}}
+\newcommand{\judg}{\textcolor{Gray}{\textsf{[judgment]}}}
+\newcommand{\var}[1]{\texttt{#1}}
+
+\title{ECO375 Term Project --- Model \& Data Tracker}
+\author{Richard}
+\date{Last updated: \today}
+
+\begin{document}
+\maketitle
+
+\noindent Tags used throughout: \data{} = backed by numbers we computed from our files; \judg{} = a reasoned choice we could argue either way. Status tags: \done, \dl{} (we need to download it), \todo, \decide.
+
+\tableofcontents
+
+%==========================================================
+\section{Status at a glance}
+
+\textbf{Where we are.} The news data is cleaned and collapsed to a ticker $\times$ week panel with weekly returns, dollar volume, the market return and the attention measures (Ver1 abnormal attention, lagged attention). The remaining controls need data we don't have yet (shares outstanding, book equity, analysts, earnings dates).
+
+\textbf{Next steps}
+\begin{enumerate}
+  \item \decide{} Sample period. Recommendation: 2018--2019 (Section~\ref{sec:sample}).
+  \item \dl{} Ken French weekly factors $\rightarrow$ risk-free rate and market excess return (5 minutes, free).
+  \item \dl{} Check WRDS access through UofT. If yes: CRSP daily, CRSP/Compustat quarterly, IBES (Section~\ref{sec:downloads}).
+  \item \decide{} Settle the open model questions in Section~\ref{sec:issues}, especially week fixed effects vs.\ ERP and which volume controls to keep.
+  \item \todo{} Ver2 (good-news) measure: needs a sentiment score on news headlines; the news data has none.
+  \item \todo{} First regression on the 2019 subsample once Size and B/M are in.
+\end{enumerate}
+
+%==========================================================
+\section{Research question and model}
+
+\textbf{Question.} Does abnormal attention to a stock affect its excess return, across the US equity market?
+
+\textbf{Baseline specification} (stock $i$, week $t$):
+\begin{align*}
+Y_{it} = {}& \beta_1\,\text{AbnAttn}_{it} + \beta_2\,\text{ERP}_t + \beta_3\,\text{Size}_{it} + \beta_4\,\text{BM}_{it}
+ + \beta_5\,\text{Turnover}_{it} + \beta_6\,\text{InstHold}_{it} \\
+ &+ \beta_7\,\text{NumEst}_{it} + \beta_8\,\text{SUE}_{it} + \beta_9\,\text{Attn}_{i,t-1} + \beta_{10}\,\text{Dvol}_{it} + a_i + u_{it}
+\end{align*}
+\begin{itemize}
+  \item $Y_{it}$ = stock $i$'s return over week $t$ minus the weekly risk-free rate.
+  \item $a_i$ = fixed firm traits (business quality, etc.), removed by the within (demeaning) transformation.
+  \item $t$ = weeks; weeks end on Friday. One year gives $T=52$.
+  \item Weekly rather than daily because daily news counts are too thin. \data{} Even weekly, the median covered stock-week has 0 articles (Section~\ref{sec:sample}).
+\end{itemize}
+
+\textbf{Two versions of the key regressor}
+\begin{description}
+  \item[Ver1 --- Abnormal attention.] $=1$ if this week's article count is above the stock's average over the previous 20 trading sessions (built as the previous 4 weeks), else 0. Reading: in a week with an attention spike, excess return is $\beta_1$ percentage points higher. \done{} (\var{abn\_attn})
+  \item[Ver2 --- Good news.] Headlines scored for tone; a ``good news'' headline has polarity $>0$. Reading: each additional good-news headline goes with $\beta_1$ pp higher excess return. \todo{}: the LSTM polarity column exists only in the Twitter dataset, not the news data.
+\end{description}
+
+%==========================================================
+\section{Variable dictionary}
+
+\begin{longtable}{>{\raggedright}p{2.3cm} >{\raggedright}p{5.4cm} >{\raggedright}p{4.6cm} p{1.9cm}}
+\toprule
+\textbf{Variable} & \textbf{Definition (as built / planned)} & \textbf{Source} & \textbf{Status}\\
+\midrule\endhead
+$Y$ (excess ret.) & Weekly return from compounded daily adj.\ close returns (\var{ret\_w}), minus weekly T-bill rate (\var{rf\_w}) & Price files (have); RF from Ken French & \done{} + \dl{} \\
+AbnAttn (Ver1) & 1 if articles this week $>$ mean of previous 4 weeks (\var{abn\_attn}) & FNSPID news (have) & \done{} \\
+Good news (Ver2) & Count of positive-tone headlines & Needs a sentiment model run on headlines & \todo{} \\
+Lagged attention & Last week's article count (\var{n\_news\_lag1}) & FNSPID news (have) & \done{} \\
+ERP & Market return minus rf. Have SPY weekly return (\var{mkt\_ret\_w}); Ken French \var{Mkt-RF} is the standard version & Price files / Ken French & \done{} + \dl{} \\
+Size & log(price $\times$ shares outstanding) at week end & CRSP daily (WRDS); free fallback: SEC filings & \dl{} \\
+BM & Latest \emph{announced} quarterly book equity / market cap & Compustat via CRSP/Compustat Merged; free fallback: SEC & \dl{} \\
+Turnover & Shares traded in the week / shares outstanding & CRSP daily (volume we have; need shares out.) & \dl{} \\
+Dvol & Sum over the week of close $\times$ volume (\var{dvol\_w}) & Price files (have) & \done{} \\
+InstHold & Fraction of shares held by 13F institutions & Thomson 13F on WRDS; SEC 13F data sets & \decide{} (suggest drop) \\
+NumEst & Number of analysts with an EPS forecast & IBES on WRDS (no free source) & \dl{} \\
+SUE / earnings & Earnings-week dummy, and surprise $=(\text{EPS}_q-\text{EPS}_{q-4})/\text{price}$ in that week & Compustat (\var{rdq}, \var{epspxq}) & \dl{} \\
+\bottomrule
+\end{longtable}
+
+Data-quality columns also in the panel: \var{n\_days} (trading days in week), \var{n\_zero\_vol} (days with zero volume), \var{bad\_px} (a daily move above 100\%, i.e.\ a broken split adjustment), \var{covered} (between the ticker's first and last article), \var{in\_gap} (inside a run of 13+ weeks with no articles, likely a scraper gap), \var{n\_own} (articles whose headline names the ticker in parentheses, e.g.\ ``Agilent (A)'').
+
+%==========================================================
+\section{What the news data supports: sample choice}\label{sec:sample}
+
+The scraper did not collect every ticker for the whole period (e.g.\ no AAPL articles before 2020). Coverage by year, counted from our cleaned ticker-day file: \data{}
+
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+Year & Articles (ticker-tagged) & Tickers with any news & Tickers with news in $\geq 40$ of 52 weeks\\
+\midrule
+2016 & 394{,}209 & 4{,}473 & 928\\
+2017 & 389{,}531 & 4{,}610 & 770\\
+2018 & 567{,}707 & 5{,}077 & \textbf{1{,}305}\\
+2019 & 580{,}723 & 5{,}364 & \textbf{1{,}307}\\
+2020 & 330{,}238 & 5{,}308 & 363\\
+2021 & 169{,}292 & 3{,}647 & 358\\
+2022 & 259{,}768 & 3{,}659 & 594\\
+2023 & 564{,}061 & 4{,}031 & 691\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Recommendation} \judg{}: 2018--2019. These are the two best-covered years by a wide margin, both pre-COVID, and two years gives $T=104$, which helps the fixed-effects estimator (Section~\ref{sec:fe}). 2019 alone is the fallback if we want exactly $T=52$.
+
+\textbf{2019 at a glance} (covered weeks, outside scraper gaps, no broken prices) \data{}:
+\begin{itemize}
+  \item 224{,}016 stock-weeks, 5{,}362 tickers; median ticker has all 52 weeks.
+  \item 59\% of stock-weeks have at least one article; mean 2.6 articles, 90th percentile 7, 99th percentile 24.
+  \item Ver1 flags 33.5\% of stock-weeks as ``abnormal''. That is a lot for something called abnormal; see Issue~\ref{iss:abn}.
+  \item Only 14.7\% of stock-weeks have an article whose headline names the ticker; most coverage is roundups.
+  \item SPY compounds to $+32.8\%$ over 2019 in our weekly series and AAPL to $+88\%$, consistent with actual total returns. This is a check that the weekly return construction is right.
+\end{itemize}
+
+%==========================================================
+\section{Data to download}\label{sec:downloads}
+
+All sources below are files you download yourself; none requires an API.
+
+\subsection*{1. Ken French Data Library (free)}
+\href{https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html}{Data Library} $\rightarrow$ ``Fama/French 3 Factors [Weekly]'' $\rightarrow$ CSV. Unzip it into \var{Panel Build/raw/} as \nolinkurl{F-F_Research_Data_Factors_weekly.csv}.\\
+Gives: \var{RF} (weekly 1-month T-bill), \var{Mkt-RF} (ERP), plus SMB and HML if we want to show the Fama--French version.
+
+\subsection*{2. WRDS (if UofT gives you access)}
+\textbf{Check first:} UofT's library listing describes WRDS access for faculty, staff and graduate students. If undergrads aren't covered, ask the ECO375 instructor whether a course or sponsored account is possible. \href{https://mdl-data.library.utoronto.ca/items/show/66}{UofT MDL WRDS page}.
+
+\begin{tabularx}{\textwidth}{>{\raggedright}p{3.6cm} >{\raggedright}X p{3.5cm}}
+\toprule
+WRDS query & Fields to tick & Save as (in \var{raw/})\\
+\midrule
+CRSP $\rightarrow$ Daily Stock File, 2017-12-01 to 2019-12-31, all stocks & PERMNO, date, TICKER, PRC, VOL, SHROUT & \var{crsp\_daily.csv}\\
+CRSP/Compustat Merged $\rightarrow$ Fundamentals Quarterly, 2016--2019 & LPERMNO, datadate, rdq, ceqq, epspxq & \var{ccm\_fundq.csv}\\
+IBES $\rightarrow$ Summary History, EPS, FPI = 1, 2017--2019 & TICKER, STATPERS, NUMEST & \var{ibes\_numest.csv}\\
+Linking Suite $\rightarrow$ IBES--CRSP link & TICKER, PERMNO, SCORE & \var{ibes\_crsp\_link.csv}\\
+\bottomrule
+\end{tabularx}
+
+Fundamentals start in 2016 because SUE needs EPS from four quarters back. With all four files in \var{raw/}, \var{03\_merge\_controls.py} adds Size, Turnover, BM, earnings week, SUE and NumEst.
+
+\subsection*{3. Free fallback if WRDS is not available}
+\begin{itemize}
+  \item \textbf{Shares outstanding and book equity:} SEC ``Financial Statement Data Sets'' (quarterly zip files on sec.gov). The \var{num.txt} file has \var{EntityCommonStockSharesOutstanding} and \var{StockholdersEquity}; \var{sub.txt} has the company and filing date. Map ticker $\leftrightarrow$ CIK with the SEC's ticker file. Caveat: that file only lists current tickers.
+  \item \textbf{Earnings dates:} filing date of the 10-Q/10-K from the same files. This lags the actual earnings release by days to weeks, so it is a weak substitute for Compustat \var{rdq}.
+  \item \textbf{NumEst:} no free equivalent. We would drop it or note it as a limitation.
+\end{itemize}
+The merge script does not yet read the SEC files. Only write that code if WRDS falls through.
+
+%==========================================================
+\section{Open model questions and input}\label{sec:issues}
+
+\subsection{Risk-free rate: use the T-bill, not the 10Y}
+The 10Y yield is an annual rate on a 10-year bond. Subtracting it from a \emph{weekly} return mismatches both units and horizon. The standard is the 1-month T-bill converted to a weekly rate, which is exactly Ken French's weekly \var{RF}. \judg{} (standard practice). In practice it barely matters: weekly RF is around 0.04\% per week in 2019, tiny next to weekly return swings.
+
+\subsection{ERP vs.\ week fixed effects}
+ERP$_t$ is the same number for every stock in a given week. Two consequences:
+\begin{itemize}
+  \item With one common $\beta_2$, the model assumes every stock has the same sensitivity to the market. High-beta and low-beta stocks get the same loading.
+  \item Week fixed effects (a dummy per week) absorb \emph{everything} common to all stocks that week: the market, rates, macro news. ERP and $r_f$ then drop out automatically, because each is just one of those common shocks. That is the two-way FE model.
+\end{itemize}
+\textbf{Correction (31 Oct):} week FE do \emph{not} fix unequal betas either. $\lambda_t$ is also one number per week shared by all stocks. It absorbs more than ERP, but still assumes equal sensitivity. The fix is a stock-specific market sensitivity: either an abnormal return as $Y$ using per-stock loadings estimated on 2017, or ERP interacted with firm dummies. See \var{eco375\_model\_alt\_twfe.tex}. \judg{} Baseline = firm FE + week FE; robustness = abnormal-return $Y$.
+
+\subsection{Demeaning (FE) vs.\ first differencing (FD)}\label{sec:fe}
+Both remove $a_i$. Which one is more efficient depends on how $u_{it}$ behaves over time (Wooldridge, Ch.~13--14):
+\begin{itemize}
+  \item If $u_{it}$ is roughly uncorrelated week to week $\rightarrow$ FE is better. Differencing would then \emph{create} serial correlation: $\Delta u_{it}$ and $\Delta u_{i,t-1}$ share $u_{i,t-1}$, correlation $-0.5$.
+  \item If $u_{it}$ behaves like a random walk $\rightarrow$ FD is better.
+\end{itemize}
+Weekly stock returns are close to serially uncorrelated, so FE (demeaning) is the natural choice. Your instinct is right; the reason is the bullet above. \judg{} We can check it on our data by regressing the FE residual on its own lag.\\
+Either way: \textbf{cluster standard errors by firm}. Possibly two-way by firm and week, since news and returns spike together market-wide.\\
+One caveat: lagged attention and feedback from returns to future news (a big move this week causes articles next week) break strict exogeneity. The FE bias from this shrinks like $1/T$, so $T=104$ helps. If FE and FD estimates differ a lot, that's a sign of the problem.
+
+\subsection{Stationarity and the ADF test}
+\begin{itemize}
+  \item \textbf{Definition, tidied:} a process is (weakly) stationary if its mean and variance are constant over time and the covariance between $X_t$ and $X_{t-k}$ depends only on the gap $k$. The STA348 ``stationary distribution'' of a Markov chain is a related idea: a chain \emph{started} in its stationary distribution is a stationary process. It isn't the same definition, though.
+  \item \textbf{$Y$ is fine.} Returns are a difference of log prices, so they are already ``differenced''. An ADF test on returns will reject a unit root essentially every time. Reporting a panel unit-root test (e.g.\ Im--Pesaran--Shin) on $Y$ is a one-line robustness check and not a real concern. \judg{}
+  \item \textbf{Where persistence does matter:} log Size, BM, NumEst and InstHold barely move week to week. Two practical consequences: (i) after demeaning, most of their variation is gone, so their coefficients will be noisy; (ii) a slow-moving regressor can't explain much week-to-week return variation anyway. This is a reason to keep the control list lean, not a reason to difference.
+\end{itemize}
+
+\subsection{Ver1 threshold: one article can count as ``abnormal''}\label{iss:abn}
+\data{} The median covered stock-week has 0 articles. So a stock with 0 articles for four weeks and 1 article this week is flagged abnormal. That explains why 33.5\% of 2019 stock-weeks are flagged. Options \judg{}:
+\begin{itemize}
+  \item a stricter cutoff: more than twice the trailing average, \emph{and} at least 2 articles;
+  \item a continuous measure: $\log(1+n_t) - \log(1+\overline{n}_{t-4,t-1})$, which keeps the size of the spike;
+  \item a longer baseline (e.g.\ 12 weeks) so one quiet month doesn't set the bar at zero.
+\end{itemize}
+
+\subsection{Is news count ``retail'' attention?}
+\judg{} Nasdaq.com article counts measure \emph{media supply} of coverage, not how many retail investors looked. Common retail-attention proxies in the literature are Google search volume and social-media/tweet volume. The Twitter dataset in the project folder is closer to ``retail''. Either reframe the question as ``abnormal media attention'' or use tweets as the attention measure, with news as the control or comparison.
+
+\subsection{Volume controls may soak up the effect we want}
+\begin{itemize}
+  \item News drives trading. If Dvol and Turnover are measured in the \emph{same} week, they partly sit on the path from attention to returns. Controlling for them then removes part of $\beta_1$, the ``bad control'' problem. \textbf{Use last week's values.} \judg{}
+  \item Turnover measures trading intensity and liquidity. It does not control for buybacks; a buyback shows up as a fall in shares outstanding. If buybacks matter, the control is the change in shares outstanding.
+  \item Dvol and Turnover are both volume measures and will be highly correlated. Keeping one, probably log Dvol lagged, is enough.
+\end{itemize}
+
+\subsection{Reverse causality in the headlines}
+\data{} (DATASET\_ISSUES \#7): many articles are written \emph{about} a price move (``Tuesday Sector Leaders\ldots'' on a $+8.7\%$ day for Agilent). Same-week news and returns are therefore partly return $\rightarrow$ news. Mitigations:
+\begin{itemize}
+  \item use \var{n\_own} (headline names the company) as a cleaner count;
+  \item also report next week's return on this week's attention;
+  \item the article timestamps are mostly placeholders (99\% at 00:00), so intra-week timing can't be used.
+\end{itemize}
+
+\subsection{Earnings: dummy first, SUE second}
+The earnings release is the biggest common cause of both news and returns, so it must be controlled. An \textbf{earnings-week dummy} (from Compustat \var{rdq}) handles most of it and is easy to measure. SUE adds the direction and size of the surprise. The seasonal-random-walk version, $(\text{EPS}_q - \text{EPS}_{q-4})/\text{price}$, needs no analyst data. One caveat: if a company reports after Friday's close, the reaction lands in the following week.
+
+\subsection{InstHold}
+Quarterly 13F data, slow-moving, and mostly absorbed by the firm fixed effect over a 1--2 year window. It is also the most work to build (13F holdings must be summed per stock per quarter). Suggest dropping it, and noting it as absorbed by $a_i$. \judg{}
+
+%==========================================================
+\section{Pipeline and files}
+
+All files are in \var{ECO375 Term Project/Panel Build/}.
+
+\medskip\noindent
+\begin{tabularx}{\textwidth}{>{\raggedright}p{4.6cm} >{\raggedright\arraybackslash}X}
+\toprule
+File & What it does\\
+\midrule
+\var{01\_news\_ticker\_day.py} & Collapses \var{news\_price\_matched.csv} (4.45M ticker--article rows) to ticker $\times$ trading-day counts $\rightarrow$ \var{data/news\_ticker\_day.csv} (2.19M rows). $\sim$25 s.\\
+\var{02\_build\_weekly\_panel.py} & Weekly returns, dollar volume and SPY return from \var{full\_history.zip}; attention measures and coverage flags $\rightarrow$ \var{data/panel\_weekly\_base.csv} (3.42M stock-weeks, 5{,}987 tickers, Jun 2009 -- Dec 2023). Runs in batches: \var{python 02\_build\_weekly\_panel.py 0 12} \ldots{} \var{11 12}, then \var{merge}.\\
+\var{03\_merge\_controls.py} & Restricts to the sample years (now 2018--2019) and adds each downloaded control file found in \var{raw/} $\rightarrow$ \var{data/panel\_weekly\_full.csv}. Tested on dummy files only, so check it once the real WRDS exports arrive.\\
+\bottomrule
+\end{tabularx}
+
+\textbf{Construction choices} (change here if we change our minds):
+\begin{itemize}
+  \item Week = Monday--Friday, labelled by its Friday; articles are assigned to the week of their matched trading day (weekend news $\rightarrow$ Monday).
+  \item Zero-news weeks are filled with 0 only between a ticker's first and last article; outside that window attention is missing, not zero.
+  \item Ticker matching to CRSP is by ticker and week; where one ticker maps to several share classes, the largest is kept.
+\end{itemize}
+
+%==========================================================
+\section{Decision log}
+\begin{tabularx}{\textwidth}{p{2.2cm} X}
+\toprule
+Date & Decision / finding\\
+\midrule
+2026-10-24 & Cleaned FNSPID merge built (\var{news\_price\_matched.csv}); 14 known data issues documented in \var{DATASET\_ISSUES.md}.\\
+2026-10-30 & Weekly panel built. 2018--2019 identified as best-covered years. Data sources restricted to downloadable files (no APIs). Ver1 threshold flagged as too loose.\\
+ & \\
+\bottomrule
+\end{tabularx}
+
+\end{document}

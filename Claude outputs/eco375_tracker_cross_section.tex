@@ -1,0 +1,468 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,tabularx,longtable,array}
+\usepackage{enumitem}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=NavyBlue,urlcolor=NavyBlue}
+\setlist{itemsep=2pt,topsep=4pt}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+
+\newcommand{\done}{\textcolor{ForestGreen}{\textbf{Built}}}
+\newcommand{\canbuild}{\textcolor{TealBlue}{\textbf{Buildable now}}}
+\newcommand{\dl}{\textcolor{BurntOrange}{\textbf{Deferred}}}
+\newcommand{\decide}{\textcolor{Purple}{\textbf{Decide}}}
+\newcommand{\data}{\textcolor{NavyBlue}{\textsf{[data]}}}
+\newcommand{\judg}{\textcolor{Gray}{\textsf{[judgment]}}}
+\newcommand{\var}[1]{\texttt{#1}}
+
+\title{ECO375 Term Project --- Cross-Sectional Formulation\\[2pt]\large Monthly cross-sections, averaged across months (Fama--MacBeth) --- versions V1--V4}
+\author{Richard}
+\date{Last updated: \today}
+
+\begin{document}
+\maketitle
+
+\noindent Companion to the main tracker (\var{eco375\_tracker.tex}) and the two-way FE spec\\ (\var{eco375\_model\_alt\_twfe.tex}).\\ Tags: \data{} = computed from our files; \judg{} = a reasoned choice. Status: \done, \canbuild{} (from news + price files), \dl{} (needs outside data), \decide.
+
+\tableofcontents
+
+%==========================================================
+\section{Question}
+
+Does abnormal attention to a stock go with higher (excess) returns? ``Abnormal'' means \emph{above the stock's own recent norm}, not above other stocks. Section~\ref{sec:why} shows why that distinction drives the whole design.
+
+%==========================================================
+\section{Model iteration log}\label{sec:log}
+
+\begin{center}\small
+\begin{tabularx}{\textwidth}{p{0.7cm} p{1.6cm} >{\raggedright}X >{\raggedright}p{3.3cm} p{1.9cm}}
+\toprule
+Ver. & Date & Formulation & Why it changed & Status\\
+\midrule
+V1 & 30 Oct & One annual cross-section; HiAttn $=1$ if the year's articles beat the \emph{cross-stock} mean; Size, BM, etc.\ as characteristics & --- & Superseded\\
+\addlinespace
+V2 & 31 Oct & Monthly cross-sections averaged over 24 months (Fama--MacBeth); AbnAttn vs.\ the stock's \emph{own} previous 3 months, price reports removed; same-month return; characteristics (Size, BM, NumEst) + Beta, Earn, Ret$_{m-1}$, Dvol & V1 measured fame, not attention; one year is one draw (Section~\ref{sec:why}) & Option (Section~\ref{sec:model})\\
+\addlinespace
+V3 & 2 Nov & Two-pass Fama--MacBeth: rolling 52-week time-series regressions give Fama--French betas ($\beta^M,\beta^{SMB},\beta^{HML}$), used as regressors in monthly cross-sections; AbnAttn measured at $t$, return at $t+1$; Earn, Ret$_{t-1}$, Dvol kept & Follows the published template; size/value from betas, so no WRDS needed; clean ordering (Section~\ref{sec:v3}) & Option\\
+\addlinespace
+V4 & 3 Nov & Pure cross-section: no factors, no betas, no time-series pass. Firm-specific proxies measured directly from each stock's own prices (size/liquidity, market risk, momentum, last month's return) + book-to-market + Earn; AbnAttn at $t$ $\rightarrow$ return at $t+1$; two attention formulations: continuous (V4-C) or indicator vs.\ 3-month moving average (V4-I); market-risk control: volatility, market beta, or beta + idiosyncratic vol & Betas from Pass 1 are noisy, about half the cross-stock spread being estimation error, with the value beta the weakest; V4 needs only our files plus book equity and shares outstanding (Section~\ref{sec:v4}) & Option\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Notation.} From V3 on, the monthly coefficients estimated in the cross-sections are written $\lambda$ and $\beta$ is reserved for stock betas, as in Fama--MacBeth. V2 below keeps its original notation ($\beta_{k,m}$ = monthly coefficients).
+
+%==========================================================
+\section{Model}\label{sec:model}
+\textit{This section is V2. V3 is in Section~\ref{sec:v3}; V4 in Section~\ref{sec:v4}.}
+
+\subsection*{Step 1: one cross-section per month}
+For each month $m = 1,\dots,24$ (Jan 2018 -- Dec 2019), across stocks $i$:
+\begin{align*}
+Y_{i,m} = {}& \alpha_m + \beta_{1,m}\,\text{AbnAttn}_{i,m} + \beta_{2,m}\,\text{Earn}_{i,m} + \beta_{3,m}\,\text{Ret}_{i,m-1} + \beta_{4,m}\,\text{Beta}_{i}\\
+&+ \beta_{5,m}\,\text{Size}_{i,m-1} + \beta_{6,m}\,\text{BM}_{i,m-1} + \beta_{7,m}\,\text{Dvol}_{i,m-1} + \beta_{8,m}\,\text{NumEst}_{i,m-1} + u_{i,m}
+\end{align*}
+
+Abnormal attention, measured against the stock's own previous three months:
+\[
+\text{AbnAttn}_{i,m} = \log(1+n_{i,m}) - \log\!\Big(1+\tfrac{1}{3}\textstyle\sum_{k=1}^{3} n_{i,m-k}\Big)
+\]
+where $n_{i,m}$ counts stock $i$'s articles in month $m$, \textbf{excluding price-report headlines} (Section~\ref{sec:filter}).
+
+\subsection*{Step 2: average across months}
+\[
+\bar\beta_1 = \frac{1}{24}\sum_{m=1}^{24}\hat\beta_{1,m}, \qquad
+\text{SE}(\bar\beta_1) = \frac{\text{sd}(\hat\beta_{1,m})}{\sqrt{24}}
+\]
+The same applies to every other coefficient.
+
+\subsection*{Reading $\bar\beta_1$}
+In a typical month, a stock whose coverage is one log unit (about $2.7\times$) above its own recent norm earns $\bar\beta_1$ percentage points more than otherwise similar stocks that month. Doubling coverage relative to the norm goes with about $0.69\,\bar\beta_1$ points.
+
+\subsection*{Timing check}
+Re-run with \textbf{next month's} return $Y_{i,m+1}$ on the left and the same right-hand side. Attention is then measured strictly before the return, so this asks whether attention \emph{predicts} returns. Do \emph{not} add next month's attention as a control: it is partly caused by next month's return (a ``bad control''). Leaving it out means $\bar\beta_1$ is the total effect, including any effect through attention staying high.
+
+%==========================================================
+\section{V3: Fama--MacBeth with Fama--French betas}\label{sec:v3}
+
+V3 runs in three steps. Pass 1 estimates each stock's betas over time; Pass 2 uses them across stocks each month; Step 3 averages.
+
+\subsection*{Pass 1: time-series regressions for each stock's betas}
+For each stock $i$ at the end of each month $t$, regress its previous 52 weekly excess returns ($w = $ the 52 weeks ending in month $t$) on the Ken French weekly factors:
+\[
+r_{i,w} - r_{f,w} = a_{i,t} + \beta^{M}_{i,t}\,\text{MKT}_w + \beta^{SMB}_{i,t}\,\text{SMB}_w + \beta^{HML}_{i,t}\,\text{HML}_w + e_{i,w}
+\]
+\begin{itemize}
+  \item Keep the three slopes $\beta^{M}_{i,t},\beta^{SMB}_{i,t},\beta^{HML}_{i,t}$ as stock $i$'s betas for month $t$. Then roll the window forward one month and repeat (about 3{,}500 stocks $\times$ 24 months $\approx$ 84{,}000 small regressions).
+  \item \textbf{Rolling, not full-sample:} each beta uses only data available at the end of month $t$, so nothing from the return being explained leaks in. Estimating betas once on all of 2018--19 would build in information from the future.
+  \item \textbf{Minimum history:} at least 40 of the 52 weeks with valid returns; otherwise the stock is dropped for that month.
+  \item \textbf{Start-up:} January 2018 betas use 2017 weekly returns (in the price files).
+  \item \textbf{Why this step is a time series and not a cross-section:} a beta is how \emph{one} stock moves when the factor moves, which can only be seen across many weeks where the factor took different values. Within a single period, each stock has one return and the factors take one value shared by all stocks, so there is no variation to fit. Conversely, the reward per unit of beta ($\lambda$) varies across stocks within a period, which is why Pass 2 is a cross-section.
+\end{itemize}
+
+\subsection*{Pass 2: one cross-section per month}
+For each month $t$ (Jan 2018 -- Dec 2019), across stocks $i$:
+\begin{align*}
+r_{i,t+1} = {}& \alpha_t + \lambda^{M}_t\,\beta^{M}_{i,t} + \lambda^{SMB}_t\,\beta^{SMB}_{i,t} + \lambda^{HML}_t\,\beta^{HML}_{i,t} + \lambda^{A}_t\,\text{AbnAttn}_{i,t}\\
+&+ \gamma^{E}_t\,\text{Earn}_{i,t+1} + \gamma^{R}_t\,r_{i,t} + \gamma^{D}_t\,\text{Dvol}_{i,t} + \epsilon_{i,t+1}
+\end{align*}
+\begin{itemize}
+  \item $r_{i,t+1}$: stock $i$'s excess return in month $t+1$.
+  \item $\beta^{M}_{i,t},\beta^{SMB}_{i,t},\beta^{HML}_{i,t}$: stock $i$'s betas from Pass 1. In Pass 2 they are \emph{data} (regressors), not coefficients.
+  \item AbnAttn$_{i,t}$: as in V2 (own previous 3 months, price reports removed), but for month $t$, the month \emph{before} the return.
+  \item Earn$_{i,t+1}$: 1 if the stock reports earnings in the return month. This is a scheduled date, fixed before the month starts, so it isn't caused by the return.
+  \item $r_{i,t}$: this month's return (coverage written about recent moves).
+  \item Dvol$_{i,t}$: log dollar volume in month $t$.
+\end{itemize}
+
+\subsection*{Step 3: average across months}
+$\bar\lambda^{A} = \frac{1}{T}\sum_t \hat\lambda^{A}_t$, with $\text{SE} = \text{sd}(\hat\lambda^{A}_t)/\sqrt{T}$; the same for every other coefficient.
+
+\subsection*{Reading $\bar\lambda^{A}$}
+After accounting for each stock's market, size and value exposure, a stock whose coverage this month is one log unit (about $2.7\times$) above its own norm earns $\bar\lambda^{A}$ percentage points more \emph{next} month.
+\begin{itemize}
+  \item $\bar\lambda^{A} > 0$: prices keep moving in the direction of the attention (a slow reaction).
+  \item $\bar\lambda^{A} < 0$: an attention-driven move partly fades.
+  \item $\bar\lambda^{A} \approx 0$: either attention doesn't matter, or prices fully react within month $t$. V3 \emph{alone cannot tell these apart}. That is why the same-month version stays alongside it.
+\end{itemize}
+
+\subsection*{Choice of timing (V3a vs.\ V3b)}
+\begin{center}\small
+\begin{tabularx}{\textwidth}{>{\raggedright}p{3.0cm} >{\raggedright}X >{\raggedright\arraybackslash}X}
+\toprule
+ & \textbf{V3a: AbnAttn$_{i,t}$ $\rightarrow$ $r_{i,t+1}$} (suggested main) & \textbf{V3b: AbnAttn$_{i,t+1}$ $\rightarrow$ $r_{i,t+1}$}\\
+\midrule
+Question & Does attention predict later returns? & Do attention and returns move together in the same month?\\
+Order of events & Clean: attention is known before the return & Overlap: some coverage is written about the move\\
+Catches a fast reaction & No & Yes\\
+Fits the Fama--MacBeth template & Yes (all regressors known at $t$) & Departs from it\\
+Read as & Predictive / causal-leaning & Descriptive association\\
+\bottomrule
+\end{tabularx}
+\end{center}
+\judg{} Report both. If V3b is positive and V3a is zero or negative, prices react fast and part of the move fades. Do \emph{not} add month-$(t{+}1)$ attention as a control in V3a: it is partly caused by the month-$(t{+}1)$ return.
+
+\subsection*{What V3 changes vs.\ V2}
+\begin{itemize}
+  \item \textbf{Size and value} enter as \emph{betas} (sensitivities) instead of \emph{characteristics} (market cap, book-to-market). Market cap and book equity are no longer needed; the betas come from our price files plus the free Ken French weekly file.
+  \item \textbf{Unequal market sensitivity} is handled for the market, size and value factors at once.
+  \item \textbf{Main timing} moves from same-month to next-month.
+  \item \textbf{NumEst} is dropped from the main spec (it needs IBES); it can come back as a robustness check.
+\end{itemize}
+
+\subsection*{Known limits}
+\begin{itemize}
+  \item \textbf{Noisy betas:} estimated betas carry error, so their $\lambda$'s are biased toward zero and somewhat distort the other coefficients. Fama and French reduce this by estimating betas on portfolios. Here betas are controls, not the coefficient of interest, so stock-level betas are acceptable; note it as a limitation.
+  \item \textbf{Standard errors:} because Pass 2 uses betas \emph{estimated} in Pass 1, the plain Fama--MacBeth standard errors are slightly too small. The textbook fix is the Shanken correction. Since betas are controls here, a sentence in the limitations is enough.
+  \item \textbf{Betas vs.\ characteristics:} there is a known debate over whether returns line up better with size/value \emph{characteristics} than with \emph{betas}. If market cap and book equity become available, adding them is the robustness check.
+  \item \textbf{Earnings dates} are still needed for Earn (Compustat, or the untested headline proxy).
+\end{itemize}
+
+\subsection*{Data needed for V3}
+\begin{center}\small
+\begin{tabular}{lll}
+\toprule
+Item & Source & Status\\
+\midrule
+Monthly returns, $r_{i,t}$, Dvol & Price files (have) & \canbuild\\
+AbnAttn (filtered) & News file + \var{headline\_classifier.py} (have) & \canbuild\\
+Weekly Mkt$-$RF, SMB, HML, RF & Ken French weekly file (free download) & Needs download\\
+Rolling 52-week betas & Price files + Ken French file & After download\\
+Earn & Compustat \var{rdq}, or headline proxy & \dl\\
+\bottomrule
+\end{tabular}
+\end{center}
+2017 weekly returns are needed to estimate the first (Jan 2018) betas; they are in the price files.
+
+%==========================================================
+\section{V4: pure cross-section with firm-specific proxies}\label{sec:v4}
+
+Every regressor is observed directly for each stock, from its own price and news history or, for book-to-market, from its financial statements. Nothing is estimated in a first pass, and no factor file is needed.
+
+\subsection*{Step 1: one cross-section per month}
+For each month $t$, across stocks $i$:
+\begin{align*}
+r_{i,t+1} = {}& \alpha_t + \lambda^{A}_t\,\text{AbnAttn}_{i,t} + \gamma^{S}_t\,\text{Size}_{i,t} + \gamma^{V}_t\,\text{Risk}_{i,t} + \gamma^{B}_t\,\text{BM}_{i,t}\\
+&+ \gamma^{M}_t\,\text{Mom}_{i,t} + \gamma^{R}_t\,r_{i,t} + \gamma^{E}_t\,\text{Earn}_{i,t+1} + \epsilon_{i,t+1}
+\end{align*}
+
+\subsection*{Step 2: average across months}
+$\bar\lambda^{A} = \frac{1}{T}\sum_t \hat\lambda^{A}_t$, $\text{SE} = \text{sd}(\hat\lambda^{A}_t)/\sqrt{T}$, as in V2/V3. The return is raw or excess: $r_f$ and the month's market move are the same for every stock, so $\alpha_t$ absorbs both.
+
+\subsection*{Proxies}
+\begin{center}\small
+\begin{tabularx}{\textwidth}{>{\raggedright}p{1.6cm} >{\raggedright}p{4.3cm} >{\raggedright}p{3.3cm} >{\raggedright\arraybackslash}X}
+\toprule
+Term & Definition (window ends at month $t$) & Stands in for & Limits\\
+\midrule
+Size & log average daily dollar volume, months $t{-}11$ to $t$ & Size (market cap), which needs shares outstanding & Mixes size with trading activity; can't separate them without market cap\\
+Risk & One of three options (below): total volatility, market beta, or market beta + idiosyncratic volatility & Exposure to market-wide moves (the role of the betas in V3) & Depends on the option\\
+BM & log(book equity / market cap). Book equity from the latest 10-Q/10-K \emph{filed} before the end of month $t$; market cap = price at the end of month $t$ $\times$ shares outstanding from that filing & Value, measured directly & Needs book equity and shares outstanding (outside data). Negative book equity: excluded. Book equity is up to a quarter stale\\
+Mom & Cumulative return, months $t{-}11$ to $t{-}1$ & Momentum, a standard return predictor & Skips month $t$ so it doesn't overlap $r_{i,t}$\\
+$r_{i,t}$ & This month's return & Short-term reversal; coverage written about recent moves & ---\\
+Earn & 1 if earnings are reported in month $t{+}1$ & Scheduled event driving both coverage and returns & Needs earnings dates\\
+AbnAttn & Month $t$ vs.\ own previous 3 months, price reports removed; continuous or indicator (below) & Key regressor & ---\\
+\bottomrule
+\end{tabularx}
+\end{center}
+The return windows don't overlap (Mom skips month $t$), so no stretch of past returns is counted twice. Using the \emph{filing} date, not the fiscal period end, for book equity means BM only uses information public by month $t$.
+
+\subsection*{Market-risk control: three options}
+The Risk term controls for how strongly a stock moves with the market. $\alpha_t$ removes the month's \emph{average} market move; Risk handles stocks reacting to it by different amounts.
+
+\begin{center}\small
+\begin{tabularx}{\textwidth}{>{\raggedright}p{2.6cm} >{\raggedright}X >{\raggedright}X >{\raggedright\arraybackslash}X}
+\toprule
+ & \textbf{(a) Total volatility} & \textbf{(b) Market beta} & \textbf{(c) Market beta + idiosyncratic vol}\\
+\midrule
+Definition & SD of daily returns, months $t{-}11$ to $t$ & Slope of the stock's previous 60 monthly returns (min.\ 24) on SPY's & (b), plus the SD of the residuals from that regression\\
+What it measures & Total risk: market-driven plus stock-specific & Market risk only & Market and stock-specific risk, separated\\
+Estimated with noise? & Barely: a standard deviation over $\sim$250 days is precise & Yes: a regression slope from 24--60 points & Yes, for the beta part\\
+Outside data & None & None (SPY is in the price files) & None\\
+Main issue & Mixes market risk with stock-specific risk, which is itself linked to coverage & Noisy: \data{} with SPY over 2013--17, only $\sim$42\% of the cross-stock spread in estimated market betas is real; the rest is estimation error. Attenuation also leaves part of the market-risk difference uncontrolled & Two variables; idiosyncratic volatility is itself a known return predictor and is likely related to attention, so its coefficient needs careful reading\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{If (b) or (c):} the noise can be reduced by shrinking each beta toward the cross-stock average in proportion to its estimated noise (Vasicek/Blume adjustment), or by assigning portfolio betas (Fama--French 1992 style, Section~\ref{sec:v3}). Either brings back part of the first-pass estimation that V4 otherwise avoids. With (b), V4 still needs no factor file, because only the market is used and SPY is in our price files.
+
+\decide{} Which risk control: (a), (b) or (c); and for (b)/(c), raw, shrunken or portfolio betas.
+
+\subsection*{Attention measure: two formulations (V4-C and V4-I)}
+V4 can be run with either definition of AbnAttn$_{i,t}$. Both use the same baseline: the stock's own average over the previous three months, $\text{MA}_{i,t} = \tfrac13(n_{i,t-1}+n_{i,t-2}+n_{i,t-3})$, with $n$ counting articles excluding price reports.
+\begin{align*}
+\textbf{V4-C (continuous):}\quad & \text{AbnAttn}_{i,t} = \log(1+n_{i,t}) - \log(1+\text{MA}_{i,t})\\
+\textbf{V4-I (indicator):}\quad & \text{AbnAttn}_{i,t} = \mathbf{1}\{\,n_{i,t} > \text{MA}_{i,t}\,\}
+\end{align*}
+
+\textbf{Reading $\bar\lambda^A$.}
+\begin{itemize}
+  \item V4-C: a stock whose coverage this month is one log unit ($\approx 2.7\times$) above its own 3-month average earns $\bar\lambda^A$ percentage points more next month, holding the controls fixed.
+  \item V4-I: stocks whose coverage this month is above their own 3-month average earn $\bar\lambda^A$ percentage points more next month than stocks at or below it, holding the controls fixed.
+\end{itemize}
+
+\textbf{How the indicator behaves} (monthly counts, Apr 2018 -- Dec 2019, the 3{,}503 stocks fully covered in 2019; 73{,}563 stock-months) \data{}:
+\begin{center}\small
+\begin{tabular}{lcc}
+\toprule
+ & All articles & Price reports removed\\
+\midrule
+Stock-months flagged (indicator $=1$) & 42.6\% & 42.2\%\\
+Flags where the 3-month average was 0 & 0.7\% & 1.0\%\\
+Flags with exactly one article that month & 2.3\% & 3.2\%\\
+Correlation of indicator with V4-C & 0.77 & 0.77\\
+\bottomrule
+\end{tabular}
+\end{center}
+\begin{itemize}
+  \item At the monthly horizon, the weekly-panel problem (a single article after empty weeks counting as a spike) is small: about 1\% of flags.
+  \item About 42\% of stock-months are flagged. ``Above its own average'' is common by construction, so the indicator marks \emph{above-normal} months, not rare spikes. A stricter cutoff (e.g.\ $n_{i,t} > 1.5\times$ or $2\times\text{MA}_{i,t}$) would flag fewer.
+  \item The two measures are related (correlation 0.77) but not the same, so the estimates can differ.
+\end{itemize}
+
+\textbf{Trade-offs}
+\begin{center}\small
+\begin{tabularx}{\textwidth}{>{\raggedright}p{3.4cm} >{\raggedright}X >{\raggedright\arraybackslash}X}
+\toprule
+ & V4-C (continuous) & V4-I (indicator)\\
+\midrule
+Uses the size of the change & Yes & No: 1.1$\times$ and 10$\times$ the average count the same\\
+Sensitivity to extreme months & Higher & Lower\\
+Ease of explanation & ``Per doubling of attention'' & ``Above-normal vs.\ not''\\
+Matches the original outline (Ver1) & No & Yes (indicator against a moving average)\\
+Extra choice to make & None & The cutoff (above the average, or a multiple of it)\\
+\bottomrule
+\end{tabularx}
+\end{center}
+\decide{} Which formulation is the main one, and for V4-I, which cutoff.
+
+\subsection*{Practical choices}
+\begin{itemize}
+  \item \textbf{Standardize each month:} convert each proxy to its cross-stock rank or z-score within the month. Coefficients become comparable (``one SD more volatility'') and a few extreme stocks can't dominate. \judg{}
+  \item \textbf{History needed:} Mom and volatility need 12 months of prices, so January 2018 needs data from January 2017. A 60-month beta needs data from January 2013.
+  \item \textbf{Size once shares outstanding are in:} the same filings that give BM also give shares outstanding. At that point Size can switch from dollar volume to log market cap, which is the standard measure and separates size from trading activity. \decide{}
+  \item \textbf{Timing:} V4a (AbnAttn$_{i,t}$ $\rightarrow$ $r_{i,t+1}$) is the main version; V4b (same-month) is the comparison, as in V3.
+\end{itemize}
+
+\subsection*{What V4 changes vs.\ V3}
+\begin{itemize}
+  \item \textbf{No estimated regressors} with risk option (a). Nothing goes into the cross-section with estimation noise attached, so the noisy-beta problem and the Shanken correction don't arise. Options (b) and (c) bring back one estimated regressor (market beta).
+  \item \textbf{Outside data: book equity, shares outstanding and earnings dates.} Ken French factors aren't needed.
+  \item \textbf{Weaker economic link.} Betas measure exposure to specific priced risks. Value is now measured directly (BM). Market risk is either a rough stand-in (total volatility) or a noisy estimate (beta), and dollar volume stands in for size. So V4 controls for \emph{what tends to predict returns}, not specifically for factor exposure.
+  \item \textbf{A stricter control set in one way:} momentum and short-term reversal are controlled explicitly. Neither is in the three-factor model, and both relate to coverage (stocks that have moved get written about).
+\end{itemize}
+
+\subsection*{Data needed for V4}
+\begin{center}\small
+\begin{tabularx}{\textwidth}{>{\raggedright}p{3.6cm} >{\raggedright}X p{2.4cm}}
+\toprule
+Item & Source & Status\\
+\midrule
+Size, Risk (any option), Mom, $r_{i,t}$, $r_{i,t+1}$ & Price files (have; SPY for beta) & \canbuild\\
+Book equity, shares outstanding (for BM) & Compustat \var{ceqq}, \var{cshoq}, \var{rdq} (WRDS). Free fallback: SEC Financial Statement Data Sets (StockholdersEquity, EntityCommonStockSharesOutstanding, filing date) & \dl\\
+AbnAttn (filtered) & News file + \var{headline\_classifier.py} & \canbuild\\
+Earn & Compustat \var{rdq}, or headline proxy & \dl\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+%==========================================================
+\section{Variables (V2)}
+
+\begin{longtable}{>{\raggedright}p{2.0cm} >{\raggedright}p{4.6cm} >{\raggedright}p{5.2cm} p{2.3cm}}
+\toprule
+\textbf{Term} & \textbf{Definition} & \textbf{Why it's there} & \textbf{Status}\\
+\midrule\endhead
+$Y_{i,m}$ & Monthly return, compounded from daily adjusted closes. Raw or excess: $r_f$ is the same for all stocks in a month, so it falls into $\alpha_m$ & Outcome & \canbuild\\
+AbnAttn & As above; price reports removed & Key regressor. Own-history baseline removes the ``well-known company'' effect & \canbuild\\
+Earn & 1 if the stock reports earnings in month $m$ & Earnings drive both coverage and returns, so this is the main confounder (Section~\ref{sec:earn}) & \dl{} *\\
+Ret$_{m-1}$ & Last month's return & Coverage written about earlier price moves & \canbuild\\
+Beta & Market beta, prior 52 weekly returns vs SPY & $\alpha_m$ removes only the \emph{average} reaction to the month's market move; high-beta stocks move more & \canbuild\\
+Size & log market cap, end of $m-1$ & Standard return predictor; correlated with coverage & \dl\\
+BM & Book-to-market, end of $m-1$ & Standard return predictor & \dl\\
+Dvol & log dollar volume, month $m-1$ & Liquidity. Lagged, because this month's volume is partly a result of this month's attention & \canbuild\\
+NumEst & Analysts covering, end of $m-1$ & Analyst activity generates both news and price moves & \dl\\
+\bottomrule
+\end{longtable}
+
+* Earnings dates come from Compustat (\var{rdq}). A possible proxy from our own data: the ``Notable earnings before/after \ldots's open'' and ``Earnings Scheduled For \ldots'' headlines, which are tagged to the reporting tickers. Untested: check its coverage against a sample of known earnings dates before relying on it.
+
+\textbf{Dropped from the original outline}
+\begin{itemize}
+  \item \textbf{ERP:} the same for every stock in a month, so absorbed by $\alpha_m$.
+  \item \textbf{InstHold:} quarterly and slow-moving; costly to build for little gain.
+  \item \textbf{Turnover:} overlaps with Dvol; keep one.
+  \item \textbf{Lagged attention:} now built into the AbnAttn baseline.
+  \item \textbf{SUE:} can return once Compustat is in; the Earn dummy covers the main concern.
+\end{itemize}
+
+%==========================================================
+\section{What each piece handles (V2; V3 the same, with betas covering size/value)}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{>{\raggedright}p{6.2cm} >{\raggedright\arraybackslash}X}
+\toprule
+Problem & Handled by\\
+\midrule
+The market's move each month & $\alpha_m$ (separate intercept each month)\\
+Stocks react differently to the market & Beta as a control\\
+Big / famous stocks always get more coverage & Own-history baseline in AbnAttn\\
+Articles written \emph{about} price moves & Price-report filter; Ret$_{m-1}$; next-month timing check\\
+Earnings drive both coverage and returns & Earn\\
+One month is one draw; stocks move together within a month & Average of 24 monthly estimates, SE from their spread\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Not handled.} Within the same month, articles published after a price move but not phrased as price reports, e.g.\ an analyst piece reacting to a rally. The next-month timing check is the answer to this. If the same-month effect is large and the next-month effect is zero, we can't tell how much of the same-month effect is reverse causality.
+
+%==========================================================
+\section{Why this design: the evidence}\label{sec:why}
+
+All numbers are 2018--19, stocks with full news coverage, no scraper gaps and no broken prices. \data{}
+
+\subsection{Comparing a stock with other stocks measures fame, not attention}
+The first version flagged a stock as high-attention if its \emph{annual} article count beat the cross-stock mean. In the 2019 cross-section (3{,}408 stocks):
+
+\begin{center}\small
+\begin{tabular}{lccc}
+\toprule
+Attention measure & Corr.\ with prior-yr log \$ volume & $\beta_1$ (pp, s.e.) & $\beta_1$ + \$ volume\\
+\midrule
+Above the average stock & $+0.56$ & 6.0 (1.5) & 2.7 (1.9)\\
+More articles than own 2018 (yes/no) & $+0.01$ & 8.7 (1.4) & 8.6 (1.4)\\
+$\log(n_{2019}) - \log(n_{2018})$ & $-0.02$ & 7.8 (1.5) & 7.9 (1.5)\\
+\bottomrule
+\end{tabular}
+\end{center}
+Against other stocks, attention tracks size: high-attention stocks had about $15\times$ the dollar volume, and coverage correlates 0.85 year to year. The estimate collapses once size is controlled. Against the stock's own past, attention is unrelated to size and the estimate is stable. These are raw annual returns with one control, a first look and not a result. The annual estimates are also likely inflated by returns driving coverage within the year.
+
+\subsection{Filtering price reports doesn't fix the cross-stock comparison}
+Removing price-report headlines left the cross-stock version almost unchanged (share flagged 31.7\% $\rightarrow$ 31.1\%; $\beta_1$ with \$ volume 2.2 $\rightarrow$ 2.0). The filter targets reverse causality, not the fame problem.
+
+\subsection{Why monthly}
+Shorter windows leave less time for returns to drive coverage, but counts get thin:
+
+\begin{center}\small
+\begin{tabular}{lccc}
+\toprule
+Horizon (2019) & Periods with zero articles & Median articles & 90th pct.\\
+\midrule
+Week & 41\% & 1 & 7\\
+Month & 10\% & 5 & 28\\
+Quarter & 0\% & 15 & 75\\
+\bottomrule
+\end{tabular}
+\end{center}
+Weekly counts are too thin for an own-history comparison (0 vs.\ 1 article is noise). Quarterly leaves three months for feedback. Monthly is the compromise. \judg{}
+
+\subsection{Why a recent (3-month) baseline, not year-ago}\label{sec:earn}
+A good ``abnormal'' measure should be close to unpredictable from its own past.
+\begin{itemize}
+  \item \textbf{Half-year changes vs.\ the same half a year earlier:} H1 and H2 correlate $0.35$ (slope $0.37$, 3{,}197 stocks). This can't be reverse causality, because H2 is later than H1. It points to a common cause: a stock's coverage rising all year, either genuinely or because the scraper collected more for that ticker in 2019.
+  \item \textbf{Monthly changes vs.\ own previous 3 months,} for gaps that don't share baseline months: correlation $-0.10$ at 4 months, $+0.16$ at 6 months. There's no steady persistence. The sign follows the \textbf{quarterly earnings calendar}: 6 months later is the same point in the earnings cycle, 4 months later is out of phase.
+\end{itemize}
+So the recent baseline removes year-long drift (including scraper changes), and what's left is driven by earnings timing. That makes Earn the most important control.
+
+\subsection{Price-report filter}\label{sec:filter}
+Keyword rules (\var{Panel Build/headline\_classifier.py}) sort 2018--19 headlines into: \emph{price report} (15\%: ``60 Biggest Movers From Yesterday'', ``Stocks Which Set New 52-Week High'', ``X is Now Oversold''), \emph{event + price} (3\%: ``Lydall -7\% on Q1 earnings miss''), \emph{no price mention} (82\%). Checked by reading 25 random headlines per group, and against returns:
+
+\begin{center}\small
+\begin{tabular}{lcc}
+\toprule
+ & Big move* the day \emph{before} & Big move the same day\\
+\midrule
+Price reports & 21\% & 36\%\\
+Event + price & 14\% & 44\%\\
+No price mention & 11\% & 16\%\\
+All stock-days (baseline) & \multicolumn{2}{c}{9.9\%}\\
+\bottomrule
+\end{tabular}
+\end{center}
+*Daily move more than $3\times$ the stock's typical move. Price reports follow big moves twice as often as other headlines, so we drop them. Event + price headlines carry the real event, so we keep them. Limits: accuracy is estimated from small samples; a proper figure needs $\sim$300 hand-labelled headlines.
+
+%==========================================================
+\section{Variants and robustness}
+\begin{itemize}
+  \item \textbf{Same month vs.\ next month} return (main vs.\ timing check).
+  \item \textbf{All articles vs.\ price reports removed:} shows how much the filter matters.
+  \item \textbf{Categories instead of continuous AbnAttn:} no spike / moderate (2--5$\times$ norm) / large ($>5\times$). Shows whether bigger spikes have bigger effects without assuming a straight line.
+  \item \textbf{Binary AbnAttn} (above own norm, yes/no): less sensitive to a few extreme months.
+  \item \textbf{Newey--West SE} on the 24 monthly estimates, if they turn out to be correlated month to month.
+  \item \textbf{Comparison with the panel} (\var{eco375\_model\_alt\_twfe.tex}). Repeated monthly cross-sections are close to a monthly panel with time effects. The two should agree; if they don't, that's worth explaining.
+\end{itemize}
+
+%==========================================================
+\section{Data and pipeline status}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{>{\raggedright}p{5.4cm} >{\raggedright\arraybackslash}X}
+\toprule
+File & Status\\
+\midrule
+\var{data/news\_ticker\_day.csv}, \var{data/panel\_weekly\_base.csv} & \done{} (steps 01--02)\\
+\var{headline\_classifier.py} & \done{}; not yet applied to the panel counts\\
+\var{04\_build\_cross\_section.py} & \done{}, but builds the \emph{annual} version; superseded by the monthly build\\
+Monthly dataset: AbnAttn (filtered), $Y$, Ret$_{m-1}$, Beta, Dvol & \canbuild{}, not yet built\\
+Earn, Size, BM, NumEst & \dl{} (Compustat / CRSP / IBES; earnings proxy from headlines possible)\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+%==========================================================
+\section{Decisions to make}
+\begin{enumerate}
+  \item \decide{} Main formulation: V2 (characteristics, same month), V3 (Fama--French betas, two-pass), or V4 (pure cross-section with firm-specific proxies). For V3 and V4, the main timing is AbnAttn at $t$ $\rightarrow$ return at $t+1$, with the same-month version alongside.
+  \item \decide{} If V3: stock-level betas, shrunken betas, or Fama--French (1992)-style portfolio betas.
+  \item \decide{} If V4: continuous attention (V4-C) or indicator vs.\ the 3-month moving average (V4-I); for V4-I, the cutoff (above the average, or a multiple of it).
+  \item \decide{} If V4: market-risk control as total volatility, market beta, or market beta + idiosyncratic volatility.
+  \item \decide{} Earnings dates: wait for Compustat, or test the headline-based proxy.
+  \item \decide{} Baseline length for AbnAttn: 3 months (current) vs.\ 6.
+  \item \decide{} (V2 only) Main outcome: same-month return with next month as the timing check, or the reverse.
+  \item \decide{} Excess vs.\ raw return. It makes no difference to $\beta_1$; choose for presentation.
+\end{enumerate}
+
+\end{document}

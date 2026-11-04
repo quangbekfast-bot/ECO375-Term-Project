@@ -1,0 +1,127 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,tabularx,array}
+\usepackage{enumitem}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=NavyBlue,urlcolor=NavyBlue}
+\setlist{itemsep=2pt,topsep=4pt}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+
+\newcommand{\data}{\textcolor{NavyBlue}{\textsf{[data]}}}
+\newcommand{\judg}{\textcolor{Gray}{\textsf{[judgment]}}}
+\newcommand{\done}{\textcolor{ForestGreen}{\textbf{Built}}}
+\newcommand{\dl}{\textcolor{BurntOrange}{\textbf{Download}}}
+\newcommand{\var}[1]{\texttt{#1}}
+
+\title{ECO375 Term Project --- Alternative Model Spec\\[2pt]\large Two-way fixed effects: ERP removed, week fixed effects added}
+\author{Richard}
+\date{Last updated: \today}
+
+\begin{document}
+\maketitle
+
+\noindent Companion to the main tracker (\var{eco375\_tracker.tex}). Tags: \data{} = computed from our files; \judg{} = a reasoned choice.
+
+%==========================================================
+\section{Specification}
+
+Stock $i$, week $t$ (weeks end Friday):
+\begin{align*}
+Y_{it} = {}& \beta_1\,\text{AbnAttn}_{it} + \beta_3\,\text{Size}_{it} + \beta_4\,\text{BM}_{it} + \beta_5\,\text{Turnover}_{it} + \beta_6\,\text{InstHold}_{it} + \beta_7\,\text{NumEst}_{it}\\
+&+ \beta_8\,\text{SUE}_{it} + \beta_9\,\text{Attn}_{i,t-1} + \beta_{10}\,\text{Dvol}_{it} + a_i + \lambda_t + u_{it}
+\end{align*}
+
+\begin{itemize}
+  \item $a_i$ = firm fixed effect: anything about stock $i$ that doesn't change over the sample.
+  \item $\lambda_t$ = week fixed effect: anything that hits \emph{every} stock equally in week $t$.
+  \item ERP$_t$ is dropped; $\beta_2$ is retired, and the other coefficients keep their numbers from the main spec.
+  \item $Y_{it}$ can be the raw weekly return \var{ret\_w}. Subtracting $r_f$ changes nothing: $r_{f,t}$ is the same for every stock in week $t$, so $\lambda_t$ absorbs it, and $\beta_1$ comes out identical with or without it.
+\end{itemize}
+
+\textbf{Reading of $\beta_1$.} In a week when stock $i$ has an attention spike, its return is $\beta_1$ percentage points higher than (a) other stocks' returns that same week and (b) its own usual return, holding the controls fixed. Each stock is compared both with itself (via $a_i$) and with the market that week (via $\lambda_t$).
+
+%==========================================================
+\section{What the week fixed effect does}
+
+ERP is one number per week shared by all stocks, so it is just one of the things $\lambda_t$ soaks up. Including both is impossible: ERP would be perfectly collinear with the week dummies and drop out. $\lambda_t$ also absorbs:
+\begin{itemize}
+  \item the market return, $r_f$, and any macro shock (Fed meetings, CPI releases, trade-war headlines);
+  \item weeks when news is heavy for \emph{all} stocks at once, such as earnings season or market-wide selloffs;
+  \item changes in how hard the scraper collected news, \emph{to the extent} they hit all tickers equally. \data{} Total ticker-tagged articles fall from 580k (2019) to 169k (2021), and $\lambda_t$ absorbs the common part of that swing. Ticker-specific gaps (e.g.\ no AAPL news before 2020) are \emph{not} absorbed. They are still handled by the \var{covered} and \var{in\_gap} filters.
+\end{itemize}
+
+\textbf{What it does not do.} $\lambda_t$ is still one number per week shared by all stocks, so it assumes every stock reacts to a common shock by the same amount. A high-beta stock's extra market move, $(\beta_i^{\text{mkt}} - \bar\beta^{\text{mkt}})\times\text{market}_t$, stays in $u_{it}$. If high-beta stocks also get more coverage in big market weeks, $\beta_1$ picks some of that up. \judg{} Section~\ref{sec:variants} gives two fixes.
+
+%==========================================================
+\section{What variation is left to estimate $\beta_1$}
+
+After removing $a_i$ and $\lambda_t$, $\beta_1$ is estimated only from how a stock's attention in a given week \emph{differs} from (its own normal level) and (what is typical across stocks that week). Two consequences:
+\begin{itemize}
+  \item Any regressor that is the same for all stocks in a week drops out automatically. That covers ERP, $r_f$, VIX, interest rates and market-wide sentiment.
+  \item Slow-moving controls (BM, InstHold, NumEst, to a lesser degree Size) have little variation left once $a_i$ is removed. Their coefficients will be noisy. That's acceptable, since they're there to protect $\beta_1$, not to be interpreted.
+\end{itemize}
+
+%==========================================================
+\section{Estimation}
+
+\begin{itemize}
+  \item \textbf{Method:} OLS with firm and week effects absorbed. The panel is unbalanced (stocks enter and leave coverage), so simple double-demeaning is not exact. Use software that absorbs both sets of effects properly:
+  \begin{itemize}
+    \item Python: \var{linearmodels.PanelOLS(..., entity\_effects=True, time\_effects=True)}
+    \item Stata: \var{reghdfe y x1 x2 ..., absorb(firm week) vce(cluster firm)}
+  \end{itemize}
+  With about 104 weeks, adding week dummies directly (\var{C(week)}) alongside firm demeaning also works.
+  \item \textbf{Standard errors:} cluster by firm, since a stock's errors are correlated over time. Two-way clustering by firm and week is a robustness check. $\lambda_t$ removes the average common shock, but not shocks shared within industries.
+  \item \textbf{Sample:} 2018--2019 ($T=104$), covered weeks only, outside scraper gaps, no broken prices (\var{covered}$=1$, \var{in\_gap}$=0$, \var{bad\_px}$=0$).
+  \item \textbf{Returns:} winsorize \var{ret\_w} at the 1st/99th percentile. \data{} The raw panel has weekly returns above $+100\%$ from bad split adjustments.
+\end{itemize}
+
+%==========================================================
+\section{Variants for unequal market sensitivity}\label{sec:variants}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{>{\raggedright}p{2.7cm} >{\raggedright}X >{\raggedright\arraybackslash}X}
+\toprule
+ & Change to the spec & What it fixes / costs\\
+\midrule
+\textbf{A. Baseline} & As above: $a_i + \lambda_t$, raw $Y$ & Simplest. Assumes all stocks react equally to common shocks.\\
+\addlinespace
+\textbf{B. Abnormal return} & $Y_{it} = r_{it} - r_{f,t} - (\hat b_i\,\text{Mkt}_t + \hat s_i\,\text{SMB}_t + \hat h_i\,\text{HML}_t)$, loadings estimated per stock on 2017 weekly data; keep $a_i + \lambda_t$ & Each stock gets its own market, size and value sensitivity. Costs: needs a clean 2017 history per stock (drops new listings), and assumes 2017 loadings still hold in 2018--19.\\
+\addlinespace
+\textbf{C. Stock-specific market slope} & Add $\gamma_i \cdot \text{Mkt}_t$ (market return interacted with firm dummies); keep $a_i + \lambda_t$ & Sensitivities estimated in-sample, so no reliance on old data. Costs: one extra coefficient per stock (fine with 104 weeks), and the market term absorbs some variation.\\
+\bottomrule
+\end{tabularx}
+\end{center}
+\judg{} Report A as the main result and B as the robustness check. If $\hat\beta_1$ barely moves between them, unequal betas aren't driving the result.
+
+%==========================================================
+\section{Data status for this spec}
+
+\begin{center}
+\begin{tabularx}{0.85\textwidth}{>{\raggedright}X >{\raggedright}p{4.2cm} p{2.4cm}}
+\toprule
+Term & Panel column & Status\\
+\midrule
+$Y$ & \var{ret\_w} & \done\\
+AbnAttn & \var{abn\_attn} & \done\\
+Attn$_{t-1}$ & \var{n\_news\_lag1} & \done\\
+Dvol & \var{dvol\_w} (use log) & \done\\
+$\lambda_t$, $a_i$ & \var{week\_end}, \var{ticker} & \done\\
+Size, BM, Turnover, InstHold, NumEst, SUE & --- & \dl\ (deferred)\\
+Variant B factors & Ken French weekly Mkt, SMB, HML, RF & \dl\\
+\bottomrule
+\end{tabularx}
+\end{center}
+A first run is possible today with $Y$, AbnAttn, lagged attention, Dvol and both fixed effects. The remaining controls are added as they arrive.
+
+%==========================================================
+\section{Notes carried over from earlier discussion}
+\begin{itemize}
+  \item Volume controls (Turnover, Dvol) measured in the \emph{same} week partly reflect the attention itself. Use last week's values. \judg{}
+  \item Same-week news and returns overlap. Run with all articles and with price-report headlines removed (\var{headline\_classifier.py}), plus next week's return as a timing check. \data{} Price reports are 15\% of 2018--19 articles; 21\% follow a day with a move $>3\times$ normal, vs.\ 11\% for headlines with no price mention.
+\end{itemize}
+
+\end{document}

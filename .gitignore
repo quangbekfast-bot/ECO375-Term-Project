@@ -1,0 +1,54 @@
+# ---------------------------------------------------------------------------
+# ECO375 term project - files kept OUT of GitHub
+# GitHub rejects files over 100 MB, so the large data lives outside the repo
+# (share it via OneDrive / Google Drive). Everything else is tracked.
+# ---------------------------------------------------------------------------
+
+# Original datasets (too large; each groupmate keeps a local copy)
+News Data Set/nasdaq_exteral_data.csv
+News Data Set/All_external.csv
+News Data Set/news_price_matched.csv
+News Data Set/full_history.zip
+News Data Set/cache/
+Twitter Data Set/full_dataset-release.csv
+
+# Large or intermediate build outputs (rebuild with the Panel Build scripts)
+Panel Build/data/panel_daily_*.csv
+Panel Build/data/panel_weekly_*.csv
+Panel Build/data/panel_weekly_base.csv
+Panel Build/data/news_ticker_day.csv
+Panel Build/data/news_daily_*.csv
+Panel Build/data/news_weekly_*.csv
+Panel Build/data/news_monthly_*.csv
+Panel Build/data/*_NEW.csv
+Panel Build/data/_05_work/
+Panel Build/data/_07_parts/
+Panel Build/data/_superseded_rawfile/
+Panel Build/data/_to_delete/
+Panel Build/data/parts/
+Panel Build/raw/
+
+# Logs, caches, system files
+*.log
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+Thumbs.db
+desktop.ini
+~$*
+
+# LaTeX build files
+*.aux
+*.fdb_latexmk
+*.fls
+*.out
+*.toc
+*.synctex.gz
+
+# Stata temporary files
+*.stswp
+*.smcl.bak
+
+# Leftover empty folder from GitHub Desktop setup (safe to delete)
+ECO375 Term Project/
