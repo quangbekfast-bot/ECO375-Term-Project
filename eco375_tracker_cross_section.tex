@@ -48,7 +48,7 @@ V2 & 31 Oct & Monthly cross-sections averaged over 24 months (Fama--MacBeth); Ab
 \addlinespace
 V3 & 2 Nov & Two-pass Fama--MacBeth: rolling 52-week time-series regressions give Fama--French betas ($\beta^M,\beta^{SMB},\beta^{HML}$), used as regressors in monthly cross-sections; AbnAttn measured at $t$, return at $t+1$; Earn, Ret$_{t-1}$, Dvol kept & Follows the published template; size/value from betas, so no WRDS needed; clean ordering (Section~\ref{sec:v3}) & Option\\
 \addlinespace
-V4 & 3 Nov & Pure cross-section: no factors, no betas, no time-series pass. Firm-specific proxies measured directly from each stock's own prices (size/liquidity, volatility, momentum, last month's return) + book-to-market + Earn; AbnAttn at $t$ $\rightarrow$ return at $t+1$; two attention formulations: continuous (V4-C) or indicator vs.\ 3-month moving average (V4-I) & Betas from Pass 1 are noisy, about half the cross-stock spread being estimation error, with the value beta the weakest; V4 needs only our files plus book equity and shares outstanding (Section~\ref{sec:v4}) & Option\\
+V4 & 3 Nov & Pure cross-section: no factors, no betas, no time-series pass. Firm-specific proxies measured directly from each stock's own prices (size/liquidity, market risk, momentum, last month's return) + book-to-market + Earn; AbnAttn at $t$ $\rightarrow$ return at $t+1$; two attention formulations: continuous (V4-C) or indicator vs.\ 3-month moving average (V4-I); market-risk control: volatility, market beta, or beta + idiosyncratic vol & Betas from Pass 1 are noisy, about half the cross-stock spread being estimation error, with the value beta the weakest; V4 needs only our files plus book equity and shares outstanding (Section~\ref{sec:v4}) & Option\\
 \bottomrule
 \end{tabularx}
 \end{center}
@@ -185,7 +185,7 @@ Every regressor is observed directly for each stock, from its own price and news
 \subsection*{Step 1: one cross-section per month}
 For each month $t$, across stocks $i$:
 \begin{align*}
-r_{i,t+1} = {}& \alpha_t + \lambda^{A}_t\,\text{AbnAttn}_{i,t} + \gamma^{S}_t\,\text{Size}_{i,t} + \gamma^{V}_t\,\text{Vol}_{i,t} + \gamma^{B}_t\,\text{BM}_{i,t}\\
+r_{i,t+1} = {}& \alpha_t + \lambda^{A}_t\,\text{AbnAttn}_{i,t} + \gamma^{S}_t\,\text{Size}_{i,t} + \gamma^{V}_t\,\text{Risk}_{i,t} + \gamma^{B}_t\,\text{BM}_{i,t}\\
 &+ \gamma^{M}_t\,\text{Mom}_{i,t} + \gamma^{R}_t\,r_{i,t} + \gamma^{E}_t\,\text{Earn}_{i,t+1} + \epsilon_{i,t+1}
 \end{align*}
 
@@ -199,7 +199,7 @@ $\bar\lambda^{A} = \frac{1}{T}\sum_t \hat\lambda^{A}_t$, $\text{SE} = \text{sd}(
 Term & Definition (window ends at month $t$) & Stands in for & Limits\\
 \midrule
 Size & log average daily dollar volume, months $t{-}11$ to $t$ & Size (market cap), which needs shares outstanding & Mixes size with trading activity; can't separate them without market cap\\
-Vol & SD of daily returns, months $t{-}11$ to $t$ & Market and other risk exposure (the role of the betas in V3) & Total risk, not market risk specifically; high-volatility stocks are also more covered\\
+Risk & One of three options (below): total volatility, market beta, or market beta + idiosyncratic volatility & Exposure to market-wide moves (the role of the betas in V3) & Depends on the option\\
 BM & log(book equity / market cap). Book equity from the latest 10-Q/10-K \emph{filed} before the end of month $t$; market cap = price at the end of month $t$ $\times$ shares outstanding from that filing & Value, measured directly & Needs book equity and shares outstanding (outside data). Negative book equity: excluded. Book equity is up to a quarter stale\\
 Mom & Cumulative return, months $t{-}11$ to $t{-}1$ & Momentum, a standard return predictor & Skips month $t$ so it doesn't overlap $r_{i,t}$\\
 $r_{i,t}$ & This month's return & Short-term reversal; coverage written about recent moves & ---\\
@@ -209,6 +209,27 @@ AbnAttn & Month $t$ vs.\ own previous 3 months, price reports removed; continuou
 \end{tabularx}
 \end{center}
 The return windows don't overlap (Mom skips month $t$), so no stretch of past returns is counted twice. Using the \emph{filing} date, not the fiscal period end, for book equity means BM only uses information public by month $t$.
+
+\subsection*{Market-risk control: three options}
+The Risk term controls for how strongly a stock moves with the market. $\alpha_t$ removes the month's \emph{average} market move; Risk handles stocks reacting to it by different amounts.
+
+\begin{center}\small
+\begin{tabularx}{\textwidth}{>{\raggedright}p{2.6cm} >{\raggedright}X >{\raggedright}X >{\raggedright\arraybackslash}X}
+\toprule
+ & \textbf{(a) Total volatility} & \textbf{(b) Market beta} & \textbf{(c) Market beta + idiosyncratic vol}\\
+\midrule
+Definition & SD of daily returns, months $t{-}11$ to $t$ & Slope of the stock's previous 60 monthly returns (min.\ 24) on SPY's & (b), plus the SD of the residuals from that regression\\
+What it measures & Total risk: market-driven plus stock-specific & Market risk only & Market and stock-specific risk, separated\\
+Estimated with noise? & Barely: a standard deviation over $\sim$250 days is precise & Yes: a regression slope from 24--60 points & Yes, for the beta part\\
+Outside data & None & None (SPY is in the price files) & None\\
+Main issue & Mixes market risk with stock-specific risk, which is itself linked to coverage & Noisy: \data{} with SPY over 2013--17, only $\sim$42\% of the cross-stock spread in estimated market betas is real; the rest is estimation error. Attenuation also leaves part of the market-risk difference uncontrolled & Two variables; idiosyncratic volatility is itself a known return predictor and is likely related to attention, so its coefficient needs careful reading\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{If (b) or (c):} the noise can be reduced by shrinking each beta toward the cross-stock average in proportion to its estimated noise (Vasicek/Blume adjustment), or by assigning portfolio betas (Fama--French 1992 style, Section~\ref{sec:v3}). Either brings back part of the first-pass estimation that V4 otherwise avoids. With (b), V4 still needs no factor file, because only the market is used and SPY is in our price files.
+
+\decide{} Which risk control: (a), (b) or (c); and for (b)/(c), raw, shrunken or portfolio betas.
 
 \subsection*{Attention measure: two formulations (V4-C and V4-I)}
 V4 can be run with either definition of AbnAttn$_{i,t}$. Both use the same baseline: the stock's own average over the previous three months, $\text{MA}_{i,t} = \tfrac13(n_{i,t-1}+n_{i,t-2}+n_{i,t-3})$, with $n$ counting articles excluding price reports.
@@ -261,16 +282,16 @@ Extra choice to make & None & The cutoff (above the average, or a multiple of it
 \subsection*{Practical choices}
 \begin{itemize}
   \item \textbf{Standardize each month:} convert each proxy to its cross-stock rank or z-score within the month. Coefficients become comparable (``one SD more volatility'') and a few extreme stocks can't dominate. \judg{}
-  \item \textbf{History needed:} Mom and Vol need 12 months of prices, so January 2018 needs data from January 2017.
+  \item \textbf{History needed:} Mom and volatility need 12 months of prices, so January 2018 needs data from January 2017. A 60-month beta needs data from January 2013.
   \item \textbf{Size once shares outstanding are in:} the same filings that give BM also give shares outstanding. At that point Size can switch from dollar volume to log market cap, which is the standard measure and separates size from trading activity. \decide{}
   \item \textbf{Timing:} V4a (AbnAttn$_{i,t}$ $\rightarrow$ $r_{i,t+1}$) is the main version; V4b (same-month) is the comparison, as in V3.
 \end{itemize}
 
 \subsection*{What V4 changes vs.\ V3}
 \begin{itemize}
-  \item \textbf{No estimated regressors.} Nothing goes into Pass 2 with estimation noise attached, so the noisy-beta problem and the Shanken correction don't arise.
+  \item \textbf{No estimated regressors} with risk option (a). Nothing goes into the cross-section with estimation noise attached, so the noisy-beta problem and the Shanken correction don't arise. Options (b) and (c) bring back one estimated regressor (market beta).
   \item \textbf{Outside data: book equity, shares outstanding and earnings dates.} Ken French factors aren't needed.
-  \item \textbf{Weaker economic link.} Betas measure exposure to specific priced risks. Value is now measured directly (BM), but Vol is still a rough stand-in for market risk, and dollar volume for size. So V4 controls for \emph{what tends to predict returns}, not specifically for factor exposure.
+  \item \textbf{Weaker economic link.} Betas measure exposure to specific priced risks. Value is now measured directly (BM). Market risk is either a rough stand-in (total volatility) or a noisy estimate (beta), and dollar volume stands in for size. So V4 controls for \emph{what tends to predict returns}, not specifically for factor exposure.
   \item \textbf{A stricter control set in one way:} momentum and short-term reversal are controlled explicitly. Neither is in the three-factor model, and both relate to coverage (stocks that have moved get written about).
 \end{itemize}
 
@@ -280,7 +301,7 @@ Extra choice to make & None & The cutoff (above the average, or a multiple of it
 \toprule
 Item & Source & Status\\
 \midrule
-Size, Vol, Mom, $r_{i,t}$, $r_{i,t+1}$ & Price files (have) & \canbuild\\
+Size, Risk (any option), Mom, $r_{i,t}$, $r_{i,t+1}$ & Price files (have; SPY for beta) & \canbuild\\
 Book equity, shares outstanding (for BM) & Compustat \var{ceqq}, \var{cshoq}, \var{rdq} (WRDS). Free fallback: SEC Financial Statement Data Sets (StockholdersEquity, EntityCommonStockSharesOutstanding, filing date) & \dl\\
 AbnAttn (filtered) & News file + \var{headline\_classifier.py} & \canbuild\\
 Earn & Compustat \var{rdq}, or headline proxy & \dl\\
@@ -437,6 +458,7 @@ Earn, Size, BM, NumEst & \dl{} (Compustat / CRSP / IBES; earnings proxy from hea
   \item \decide{} Main formulation: V2 (characteristics, same month), V3 (Fama--French betas, two-pass), or V4 (pure cross-section with firm-specific proxies). For V3 and V4, the main timing is AbnAttn at $t$ $\rightarrow$ return at $t+1$, with the same-month version alongside.
   \item \decide{} If V3: stock-level betas, shrunken betas, or Fama--French (1992)-style portfolio betas.
   \item \decide{} If V4: continuous attention (V4-C) or indicator vs.\ the 3-month moving average (V4-I); for V4-I, the cutoff (above the average, or a multiple of it).
+  \item \decide{} If V4: market-risk control as total volatility, market beta, or market beta + idiosyncratic volatility.
   \item \decide{} Earnings dates: wait for Compustat, or test the headline-based proxy.
   \item \decide{} Baseline length for AbnAttn: 3 months (current) vs.\ 6.
   \item \decide{} (V2 only) Main outcome: same-month return with next month as the timing check, or the reverse.
