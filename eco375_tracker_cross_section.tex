@@ -465,4 +465,71 @@ Earn, Size, BM, NumEst & \dl{} (Compustat / CRSP / IBES; earnings proxy from hea
   \item \decide{} Excess vs.\ raw return. It makes no difference to $\beta_1$; choose for presentation.
 \end{enumerate}
 
+
+%==========================================================
+\section{Reading list}\label{sec:reading}
+
+Grouped by what each paper is for in this project. \textbf{Citation details:} items marked $\checkmark$ were checked against a bibliographic source (journal, volume, pages) on 3 Nov 2026. The rest are standard references cited from memory; confirm page numbers before putting them in the paper.
+
+\subsection*{A. The two methods}
+\begin{itemize}
+  \item $\checkmark$ \textbf{Fama, E.\ F., \& MacBeth, J.\ D.\ (1973).} Risk, return, and equilibrium: Empirical tests. \emph{Journal of Political Economy}, 81(3), 607--636.\\
+  \textit{The original two-pass method: rolling betas, monthly cross-sectional regressions, averaged slopes, and SE from their spread. The template for V3/V4.}
+  \item \textbf{Fama, E.\ F., \& French, K.\ R.\ (1992).} The cross-section of expected stock returns. \emph{Journal of Finance}, 47(2), 427--465.\\
+  \textit{Fama--MacBeth on individual stocks with size and book-to-market characteristics; size $\times$ pre-ranking beta portfolios to get precise betas.}
+  \item \textbf{Fama, E.\ F., \& French, K.\ R.\ (1993).} Common risk factors in the returns on stocks and bonds. \emph{Journal of Financial Economics}, 33(1), 3--56.\\
+  \textit{Builds SMB and HML from the $2\times3$ size/B/M sorts; time-series tests on 25 portfolios (intercept $=0$). Source of the Ken French factors.}
+  \item \textbf{Fama, E.\ F., \& French, K.\ R.\ (1996).} Multifactor explanations of asset pricing anomalies. \emph{Journal of Finance}, 51(1), 55--84.\\
+  \textit{Which return patterns the three factors do and don't explain (notably momentum). Useful for arguing what still needs controlling.}
+  \item \textbf{Fama, E.\ F., \& French, K.\ R.\ (2015).} A five-factor asset pricing model. \emph{Journal of Financial Economics}, 116(1), 1--22.\\
+  \textit{Adds profitability and investment factors; a possible robustness extension.}
+\end{itemize}
+
+\subsection*{B. Estimation issues that apply to our design}
+\begin{itemize}
+  \item \textbf{Shanken, J.\ (1992).} On the estimation of beta-pricing models. \emph{Review of Financial Studies}, 5(1), 1--33.\\
+  \textit{Errors-in-variables from estimated betas; the standard-error correction for two-pass regressions (V3).}
+  \item \textbf{Petersen, M.\ A.\ (2009).} Estimating standard errors in finance panel data sets: Comparing approaches. \emph{Review of Financial Studies}, 22(1), 435--480.\\
+  \textit{When Fama--MacBeth SEs are right and when to cluster by firm, time or both. Directly relevant to the panel vs.\ cross-section choice.}
+  \item \textbf{Newey, W.\ K., \& West, K.\ D.\ (1987).} A simple, positive semi-definite, heteroskedasticity and autocorrelation consistent covariance matrix. \emph{Econometrica}, 55(3), 703--708.\\
+  \textit{The usual fix if the monthly $\hat\lambda_t$ are correlated over time.}
+  \item $\checkmark$ \textbf{Lewellen, J., Nagel, S., \& Shanken, J.\ (2010).} A skeptical appraisal of asset pricing tests. \emph{Journal of Financial Economics}, 96(2), 175--194.\\
+  \textit{Why testing on size/B/M portfolios is a weak test; argues for test assets sorted on other characteristics (e.g.\ attention).}
+  \item \textbf{Scholes, M., \& Williams, J.\ (1977).} Estimating betas from nonsynchronous data. \emph{Journal of Financial Economics}, 5(3), 309--327.
+  \item \textbf{Dimson, E.\ (1979).} Risk measurement when shares are subject to infrequent trading. \emph{Journal of Financial Economics}, 7(2), 197--226.\\
+  \textit{Both: why betas of thinly traded stocks come out too low at short return frequencies, and the lagged-market fixes. Background to the weekly vs.\ monthly beta gap we found.}
+  \item \textbf{Blume, M.\ E.\ (1971).} On the assessment of risk. \emph{Journal of Finance}, 26(1), 1--10.
+  \item \textbf{Vasicek, O.\ A.\ (1973).} A note on using cross-sectional information in Bayesian estimation of security betas. \emph{Journal of Finance}, 28(5), 1233--1239.\\
+  \textit{Both: shrinking noisy betas toward the average (risk options (b)/(c) in V4).}
+\end{itemize}
+
+\subsection*{C. Betas or characteristics?}
+\begin{itemize}
+  \item $\checkmark$ \textbf{Daniel, K., \& Titman, S.\ (1997).} Evidence on the characteristics of cross sectional variation in stock returns. \emph{Journal of Finance}, 52(1), 1--33.\\
+  \textit{Argues returns line up with characteristics (size, B/M) rather than factor loadings. The case for V2/V4 over V3.}
+\end{itemize}
+
+\subsection*{D. Attention and media: close to our question}
+\begin{itemize}
+  \item $\checkmark$ \textbf{Fang, L., \& Peress, J.\ (2009).} Media coverage and the cross-section of stock returns. \emph{Journal of Finance}, 64(5), 2023--2052.\\
+  \textit{The closest precedent: stocks with no media coverage earn higher returns than heavily covered stocks, after risk controls. Uses Fama--MacBeth and factor-adjusted portfolios. Note the sign: it's about \emph{levels} of coverage, ours about \emph{abnormal} coverage.}
+  \item $\checkmark$ \textbf{Barber, B.\ M., \& Odean, T.\ (2008).} All that glitters: The effect of attention and news on the buying behavior of individual and institutional investors. \emph{Review of Financial Studies}, 21(2), 785--818.\\
+  \textit{Retail investors buy attention-grabbing stocks: the mechanism behind attention-driven price pressure.}
+  \item \textbf{Da, Z., Engelberg, J., \& Gao, P.\ (2011).} In search of attention. \emph{Journal of Finance}, 66(5), 1461--1499.\\
+  \textit{Google search volume as a direct retail-attention measure; abnormal search predicts higher returns over the next two weeks and a reversal within the year. Its ``abnormal'' measure (vs.\ the stock's own recent median) is close to our AbnAttn.}
+  \item \textbf{Tetlock, P.\ C.\ (2007).} Giving content to investor sentiment: The role of media in the stock market. \emph{Journal of Finance}, 62(3), 1139--1168.\\
+  \textit{Media tone and market returns; background for a sentiment (Ver2) extension.}
+  \item $\checkmark$ \textbf{Amihud, Y.\ (2002).} Illiquidity and stock returns: Cross-section and time-series effects. \emph{Journal of Financial Markets}, 5(1), 31--56.
+  \item $\checkmark$ \textbf{Ang, A., Hodrick, R.\ J., Xing, Y., \& Zhang, X.\ (2006).} The cross-section of volatility and expected returns. \emph{Journal of Finance}, 61(1), 259--299.\\
+  \textit{Both: controls that matter when attention is the regressor (liquidity; idiosyncratic volatility, risk option (c) in V4).}
+\end{itemize}
+
+\subsection*{E. Textbooks}
+\begin{itemize}
+  \item \textbf{Bali, T.\ G., Engle, R.\ F., \& Murray, S.\ (2016).} \emph{Empirical Asset Pricing: The Cross Section of Stock Returns.} Wiley.\\
+  \textit{Practical chapters on beta estimation, portfolio sorts and Fama--MacBeth regressions: the most hands-on reference for this project.}
+  \item \textbf{Cochrane, J.\ H.\ (2005).} \emph{Asset Pricing} (rev.\ ed.). Princeton University Press.\\
+  \textit{Theory behind time-series vs.\ cross-sectional tests and Fama--MacBeth standard errors.}
+\end{itemize}
+
 \end{document}
