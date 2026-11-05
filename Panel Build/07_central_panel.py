@@ -9,7 +9,11 @@ Outputs: data/panel_daily_{raw,filtered}_2018-03_2020-02.csv
          data/panel_monthly_{raw,filtered}_2018-03_2020-02.csv
          raw = all matched articles; filtered = price-report headlines removed. Price columns are identical.
 
-Rows: every trading day (or block) on which the ticker has a price, for the 5,513 tickers in the news panel.
+Rows: every trading day (or block) on which the ticker has a price, for the tickers in the news panel.
+  pre_sample = 1 marks the 3 periods kept BEFORE the first cross-section (3 trading days / 3 weeks / 3 thirty-day
+  blocks), so a moving average over the previous 3 periods exists from the first sample period on. Analysis
+  sample: pre_sample = 0. Weekly pre-sample blocks are -2..0 (2018-02-10 .. 2018-03-02); monthly -2..0
+  (2017-12-03 .. 2018-03-02).
   n_articles = articles that day/block; 0 on no-news days INSIDE the ticker's coverage window, blank outside it.
   covered    = 1 if the day lies between the ticker's first and last article in the whole news history
                (DATASET_ISSUES #4: outside that window the scraper didn't collect news, so 'no article' isn't 0).
@@ -34,7 +38,9 @@ HERE = Path(__file__).resolve().parent
 DATA = HERE / "data"
 PARTS = DATA / "_07_parts"; PARTS.mkdir(exist_ok=True)
 ZIP = HERE.parent / "News Data Set" / "full_history.zip"
-START, END = "2018-03-01", "2020-02-28"
+START, END = "2017-12-01", "2020-02-28"     # internal range: includes the pre-sample baseline
+SAMPLE_START = "2018-03-01"                  # first day of the analysis sample
+N_PRE = 3                                    # pre-sample periods kept before the first cross-section
 ANCHOR, LAST_DAY = pd.Timestamp("2018-03-03"), pd.Timestamp("2020-02-29")
 TAG = "2018-03_2020-02"
 
@@ -63,7 +69,7 @@ if sys.argv[1:2] != ["merge"]:
     for t in tickers:
         px = (pd.read_csv(z.open(files[t])).rename(columns={"adj close": "adj_close"})
                 .drop_duplicates("date").sort_values("date"))
-        px = px[(px.date >= "2018-01-01") & (px.date <= END)].copy()
+        px = px[(px.date >= "2017-10-01") & (px.date <= END)].copy()
         px["ret"] = px["adj_close"].pct_change(fill_method=None)
         px = px[px.date >= START]
         if px.empty:
@@ -93,12 +99,16 @@ for kind, col in (("raw", "n_raw"), ("filtered", "n_filt")):
     n_news = pd.read_csv(DATA / f"news_daily_{kind}_{TAG}.csv", keep_default_na=False).n_articles.sum()
     print(f"{kind}: articles in news panel {n_news:,} | on price rows {int(d[col].sum()):,}")
 price_cols = ["open", "high", "low", "close", "adj_close", "volume", "ret", "bad_px", "covered"]
+days = sorted(d["date"].unique())
+cut = days[days.index(next(x for x in days if x >= SAMPLE_START)) - N_PRE]   # 3 trading days before the sample
+dd = d[d["date"] >= cut].copy()
+dd["pre_sample"] = (dd["date"] < SAMPLE_START).astype(int)
 for kind, col in (("raw", "n_raw"), ("filtered", "n_filt")):
     if STAGE == "blocks":
         break
-    f = write(d[["ticker", "date"] + price_cols + [col]].rename(columns={col: "n_articles"}),
+    f = write(dd[["ticker", "date", "pre_sample"] + price_cols + [col]].rename(columns={col: "n_articles"}),
               DATA / f"panel_daily_{kind}_{TAG}.csv")
-    print(f"wrote {f.name}: {len(d):,} ticker-days, {d.ticker.nunique():,} tickers")
+    print(f"wrote {f.name}: {len(dd):,} ticker-days ({dd.pre_sample.sum():,} pre-sample, from {cut}), {dd.ticker.nunique():,} tickers")
 if STAGE == "daily":
     sys.exit()
 
@@ -108,9 +118,9 @@ d["dv"] = d["close"] * d["volume"]
 d["zv"] = (d["volume"] == 0).astype(int)
 for name, L in (("weekly", 7), ("monthly", 30)):
     n_blocks = ((LAST_DAY - ANCHOR).days + 1) // L
-    x = d[d.date >= ANCHOR].copy()
-    x["block"] = (x.date - ANCHOR).dt.days // L + 1
-    x = x[x.block <= n_blocks]
+    x = d[d.date >= ANCHOR - pd.Timedelta(days=N_PRE * L)].copy()
+    x["block"] = (x.date - ANCHOR).dt.days // L + 1          # blocks -2, -1, 0 = pre-sample baseline
+    x = x[(x.block >= 1 - N_PRE) & (x.block <= n_blocks)]
     g = x.groupby(["ticker", "block"])
     blk = pd.DataFrame({
         "ret": np.expm1(g["lr"].sum(min_count=1)),
@@ -125,8 +135,10 @@ for name, L in (("weekly", 7), ("monthly", 30)):
         blk.loc[blk.covered == 0, c] = np.nan
     blk.insert(2, "block_start", (ANCHOR + pd.to_timedelta((blk.block - 1) * L, unit="D")).dt.strftime("%Y-%m-%d"))
     blk.insert(3, "block_end", (ANCHOR + pd.to_timedelta(blk.block * L - 1, unit="D")).dt.strftime("%Y-%m-%d"))
-    base = ["ticker", "block", "block_start", "block_end", "ret", "open_start", "high", "low", "close_end", "adj_close_end", "volume",
+    blk.insert(4, "pre_sample", (blk.block <= 0).astype(int))
+    base = ["ticker", "block", "block_start", "block_end", "pre_sample", "ret", "open_start", "high", "low", "close_end", "adj_close_end", "volume",
             "dollar_volume", "n_days", "n_zero_vol", "bad_px", "covered"]
     for kind, col in (("raw", "n_raw"), ("filtered", "n_filt")):
         f = write(blk[base + [col]].rename(columns={col: "n_articles"}), DATA / f"panel_{name}_{kind}_{TAG}.csv")
-        print(f"wrote {f.name}: {n_blocks} blocks, {len(blk):,} ticker-blocks, covered {blk.covered.mean():.1%}")
+        print(f"wrote {f.name}: {N_PRE} pre-sample + {n_blocks} blocks ({blk.block_start.min()} .. {blk.block_end.max()}), "
+              f"{len(blk):,} ticker-blocks ({blk.pre_sample.sum():,} pre-sample), covered {blk.covered.mean():.1%}")

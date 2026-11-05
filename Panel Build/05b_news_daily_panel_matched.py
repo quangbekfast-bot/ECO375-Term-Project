@@ -9,7 +9,8 @@ Output: data/news_daily_raw_2018-03_2020-02.csv       ticker, date, n_articles  
 
   * date = price_date, the matched TRADING day (weekend/holiday articles sit on the next session), so the
            panel lines up with the daily price files.
-  * window: trading days 2018-03-01 .. 2020-02-28.
+  * window: trading days 2017-12-01 .. 2020-02-28 (Dec 2017 - Feb 2018 = pre-sample baseline for the
+            moving-average attention measure; the analysis sample starts 2018-03-01).
   * filter: drop 'price_report' headlines; keep 'event_plus_price' and 'no_price'.
   * sparse: a ticker-day appears only if it had at least one article.
 Supersedes 05_news_daily_panel.py (built from the raw Nasdaq file on calendar dates); those outputs are in
@@ -25,7 +26,7 @@ from headline_classifier import classify
 
 SRC = HERE.parent / "News Data Set" / "news_price_matched.csv"
 DATA = HERE / "data"
-START, END = "2018-03-01", "2020-02-28"
+START, END = "2017-12-01", "2020-02-28"   # starts 3 months early: baseline for the first moving average
 
 parts = []
 for ch in pd.read_csv(SRC, usecols=["ticker", "price_date", "title"], dtype=str,

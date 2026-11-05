@@ -53,3 +53,7 @@ desktop.ini
 
 # Leftover empty folder from GitHub Desktop setup (safe to delete)
 ECO375 Term Project/
+
+# SEC bulk downloads (~3 GB) and step-9 intermediate files
+SEC DATA/
+Panel Build/data/_09_work/
