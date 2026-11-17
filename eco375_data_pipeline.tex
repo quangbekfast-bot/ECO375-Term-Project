@@ -487,8 +487,28 @@ From \var{DATASET\_ISSUES.md}, the ones that affect our sample:
 \section{Still to build and open decisions}
 
 \begin{itemize}
-  \item \todo{} \textbf{Abnormal attention}: $\mathbf{1}\{\text{NetAttn}_{i,t} > \text{average of the previous 3 periods}\}$ (or the continuous log version), from \var{n\_articles} of the filtered panel, using the pre-sample rows.
-  \item \todo{} \textbf{Firm proxies} (construct in Stata): Vol (SD of daily returns over 52 weeks, from the helper columns), Size (log average dollar volume, or log market equity from step 9), MOM (compounded weekly \var{ret}, $t-11$ to $t-2$). \textbf{Weekly: all inputs are now in the panel from week 1.} Monthly still has only 3 pre-sample blocks, so 12-month windows there would need the same extension.
+  \item \todo{} \textbf{Abnormal attention}: $\mathbf{1}\{\text{NetAttn}_{i,t} > \text{baseline}\}$ (or the continuous log version), from \var{n\_articles} of the filtered panel, using the pre-sample rows.
+  \item \decide{} \textbf{AbnAttn definition: small counts make the 3-period rule noisy} (flagged 17 Nov 2026, under consideration). Most firms get little news: the median firm-week has 0 articles (mean 1.8) and 55\% of firm-weeks have a 52-week average below 1 article a week. With a 3-period average the baseline is often exactly 0, so one article counts as a spike, and ``any increase over the average'' flags a large share of firm-weeks. Weekly panel, 4,845 firms per week, 103 cross-sections:
+
+  {\small
+  \begin{tabular}{@{}lrrrr@{}}
+  \toprule
+  & \multicolumn{2}{c}{Article count} & \multicolumn{2}{c}{Positive headlines}\\
+  Baseline and rule & \% flagged & \% from 0 & \% flagged & \% from 0\\
+  \midrule
+  3-week average, any increase (current) & 27.6 & 19.0 & 15.0 & 38.3\\
+  12-week average, any increase & 27.1 & 2.4 & 15.7 & 8.7\\
+  52-week average, any increase & 28.6 & 0.3 & 16.4 & 1.4\\
+  52-week average, $\ge 2\times$ and $\ge 3$ articles & 8.6 & 0.1 & 3.6 & 0.1\\
+  \midrule
+  \multicolumn{5}{@{}l}{\emph{Only firms averaging $\ge$ 1 article a week (2,181 firms per week):}}\\
+  3-week average, any increase & 37.5 & 6.5 & 26.2 & 29.1\\
+  52-week average, $\ge 2\times$ and $\ge 3$ articles & 13.9 & 0.0 & 7.4 & 0.0\\
+  \bottomrule
+  \end{tabular}}
+
+  ``\% from 0'' = share of flags where the baseline was 0. Reading: a longer baseline removes the zero-baseline problem (the 52 weeks of history are already in the weekly panel); the high flag rate comes from ``any increase'', and a minimum jump ($\ge 2\times$ baseline and $\ge 3$ articles) brings it to 8.6\%; dropping thinly covered firms halves the sample, so it suits a robustness check. Options under consideration: 52-week baseline with a minimum jump (sensitivity at 1.5$\times$ and 3$\times$), or the continuous log version with a 52-week baseline. Monthly panel: a long baseline needs the same back-extension as the weekly panel (only 3 pre-sample months now).
+  \item \todo{} \textbf{Firm proxies} (construct in Stata): Vol (SD of daily returns over 52 weeks, from the helper columns: sum $S_1$, $S_2$, $N$ over the 52 weeks, then $\sqrt{(S_2 - S_1^2/N)/(N-1)}$ with $N \approx 251$ trading days; set the helpers to missing in \var{bad\_px} weeks first), Size (log average dollar volume, or log market equity from step 9), MOM (compounded weekly \var{ret}, $t-11$ to $t-2$). \textbf{Weekly: all inputs are now in the panel from week 1.} Monthly still has only 3 pre-sample blocks, so 12-month windows there would need the same extension.
   \item \decide{} \textbf{Risk control}: total volatility vs.\ market beta (shrunk, estimated through $t-1$) vs.\ both. SPY is in the price files.
   \item \decide{} \textbf{Horizon}: weekly (104 cross-sections) or monthly (24) as the main specification; the other as robustness. Proxy windows count in that horizon's units.
   \item \decide{} \textbf{Earnings amounts}: net income (for E/P, no split issue) and/or EPS (needs the split factor) are not pulled yet.
