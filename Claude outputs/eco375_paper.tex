@@ -1,0 +1,251 @@
+%% Preamble of common setup and packages
+
+% Change font size and document type here
+\documentclass[11pt]{article}
+
+% Add packages here
+\usepackage{abstract, geometry, float, natbib, chngcntr, import, setspace, hyperref, amsmath, booktabs, adjustbox, arydshln, calc, subcaption, booktabs, multirow, enumitem, comment, hyperref}
+
+\usepackage{hyperref}
+
+% Added for the methodology section: colours for review flags, extra math symbols
+\usepackage{xcolor, amssymb}
+% Review markers. To remove all flags before submission, replace the two lines below with:
+%   \newcommand{\flag}[1]{}      \newcommand{\filled}[1]{#1}
+\newcommand{\flag}[1]{{\color{red!75!black}\small [\textbf{Flag:} #1]}}
+\newcommand{\filled}[1]{{\color{blue!70!black}#1}}   % text filled into a blank left in the draft
+
+
+% Change margins here
+\geometry{left=1in,right=1in,top=1.0in,bottom=1.0in}
+
+% Change Title of Paper here
+\title{\bf{Does Abnormal Attention Predict US Equity Returns?}}
+
+% Start document
+\begin{document}
+
+%% Setup a title page
+\begin{titlepage}
+
+% Change author info here
+\author{Malak Elsayed \\ Johan Sajan \\ Richard Pham\thanks{Contact email: \href{mailto:email@mail.utoronto.ca}{richardp.pham@mail.utoronto.ca}, \href{mailto:email@mail.utoronto.ca}{email2@mail.utoronto.ca}, \href{mailto:email@mail.utoronto.ca}{email2@mail.utoronto.ca}. We would like to thank Professor Eduardo, Teaching Assistants Tishma and Felix  for their guidance and support throughout this project. Thanks also to Peer 1 and Peer 2 for comments. All remaining errors are our own.}  \\ Department of Economics, University of Toronto \\ ECO375: Applied Econometrics I \\ Professor Eduardo Augusto Souza Rodrigues}
+\date{\today}
+\maketitle
+
+
+\thispagestyle{empty} % remove page 0 from abstract
+\setcounter{page}{0}
+\begin{abstract}
+\linespread{1.25} % Spacing for title page
+\selectfont
+\noindent 
+% LaTeX Exercise: Add an extra sentence somewhere in the abstract
+ECO375 students are required to complete a term project. It can be done individually, in pairs, or in groups of three (but not more than that). It is usually due one week after the last lecture of the semester (the exact date will be mentioned in the syllabus). Use this space to discuss the abstract of your paper. You will apply the econometric methodologies covered in this course on a real dataset to answer a research question of your choice. The abstract is a very concise summary of a paper, typically consists of 100 - 300 words. Ideally the abstract should contain the motivation, research question, approach, and key results. 
+\end{abstract}
+\end{titlepage}
+
+\pagebreak % Use this command to start a new page
+
+\doublespacing % Double space main text
+
+% LaTeX Exercise: Try adding another section in the paper (e.g. Theoretical Model)
+
+\section{Introduction}
+Your introduction goes here. You can think about the introduction as an expanded abstract, detailing the motivation, research question, approach, and key results further. Some good practices include: why an economist might care about your question, building to the research question itself, stating the main result (coefficient magnitude and sign, statistical significance...). Try to avoid extremely broad statements and highlight the specific economic relationship you are studying. 
+
+
+\section{Literature Review}
+Discuss other related research papers here. Some good practices here can be: picking 3-4 papers, what they address, the methods they use, the findings they state. A good literature review discusses the chosen papers in unison to show how they inform each other AND how, together, they inform the specific economic relationship you are investigating in your paper. Example of citation in text: \cite{LABEL1}. (We will go over citations and bibliography in class) %Once a paper is cited in your text, it is automatically added to your bibliography.
+
+\section{Institutional Background}
+Give background information here about the environment you are studying. NOTE: THIS IS NOT MANDATORY. Include this section only if a policy/market/event/regulation/etc. in your paper warrants a separate discussion to understand your empirical analysis. Be mindful of the extent of discussion, and include only the background that is essential for the grader to understand your research question and analysis.
+
+\section{Data}
+Discuss your data here. Some elements that you might consider putting here: data source, observations, variables, how you constructed them, and the sample period. You can use subsections here (2 examples are shown below) as your paper requires to distribute the discussion.
+
+\subsection{Description}
+info about dataset, how your sample was created, if there are any missing values, variable definitions, if you dropped anything, etc. 
+
+\subsection{Summary Statistics}
+Tables referenced here can be discussed in text. You can briefly point out the economic relevance, surprising features, point anything that you think is important for the grader to know as you interpret your regression. You can put tables and figures here too!
+\section{Econometric Model}
+% ---- Methodology draft (to be split into subsections later) ----
+
+To determine whether or not attention has a positive impact on returns, we can reframe the question as asking whether or not attention is a risk premium factor when considering individual equity returns. From this framing, we can utilize the Carhart regression equation \filled{(Carhart, 1997)}, which attributes a fund's return series to four key risk factors.
+
+\flag{Abnormal attention is a firm characteristic, not a traded factor (a long--short portfolio return). The FM regression tests whether a characteristic carries a return premium; it does not by itself show that the premium is compensation for \emph{risk}. ``Characteristic premium'' is the more defensible wording if a grader pushes on it.}
+
+The original Carhart regression equation is:
+\begin{equation}
+R_{p,t} - R_{f,t} = \alpha_p + \beta_p\,(R_{M,t} - R_{f,t}) + s_p\,\text{SMB}_t + h_p\,\text{HML}_t + m_p\,\text{MOM}_t + \varepsilon_{p,t}
+\end{equation}
+
+This is a time-series regression, with $Y$ being the excess return of a portfolio and the corresponding $X$ being the risk premium factors. Each factor is constructed through \filled{long--short portfolios of stocks sorted on a characteristic: SMB and HML from independent sorts on size and book-to-market (Fama and French, 1993), and MOM from sorts on each stock's prior eleven-month return lagged one month (Carhart, 1997); $R_M - R_f$ is the value-weighted market return minus the one-month T-bill rate}. The coefficient betas are interpreted as a return's sensitivity to a risk premium factor.
+
+Taking the original Carhart regression equation as theoretical grounding, we want to test a new risk factor called abnormal attention. This is achieved by using the Fama--MacBeth regression framework \filled{(Fama and MacBeth, 1973)} (hereafter referred to as the FM regression), a standard procedure for testing new risk premium factors. We want to test the combined explanatory power of abnormal attention alongside the original Carhart factors. As the Carhart factors are constructed on a time-series basis, naively taking the same factors would not create variation in exposure across firms; to account for this, we take proxies for these as follows.
+
+For RM$-$RF (market return minus the risk-free rate), this is the risk factor of market sensitivity; a ticker with a higher beta is expected to generate a higher return under the assumption that only systematic risks are priced. We replace this with total return volatility over 52 weeks. We must note that this is an imperfect proxy for systematic risk exposure, as total volatility accounts for both idiosyncratic and systematic risk.
+
+\begin{equation}
+\text{Vol}_{i,t} = \operatorname{SD}\big(r_{i,d}\big), \quad d \in \text{the 52 weeks ending at } t
+\end{equation}
+where $r_{i,d}$ is the daily return of stock $i$.
+
+\flag{Two timing issues. (1) Units: the volatility window is in weeks, but Size and MOM are in time steps ($t-11$ to $t$) and the FM step uses 24 periods, i.e.\ the 30-day blocks. Pick one unit for all proxies. (2) The window should end at $t-1$. If it includes period $t$, a news spike in $t$ that makes the stock swing more is partly absorbed by the volatility control, which is the effect you are testing.}
+
+For SMB (Small-Minus-Big), this is the risk factor of size, under which smaller tickers are expected to generate higher returns on average than larger firms. We replace this with a direct exposure of log average daily dollar volume from $t-11$ to $t$, under which we assume that bigger firms would have higher average volume traded across sessions than smaller firms.
+
+\begin{equation}
+\text{Size}_{i,t} = \log\!\Big(\frac{1}{D_{i,t}}\sum_{d \in [t-11,\,t]} P_{i,d}\,V_{i,d}\Big)
+\end{equation}
+where $P_{i,d}V_{i,d}$ is daily dollar volume and $D_{i,t}$ is the number of trading days in the window.
+
+\flag{(1) Trading volume is itself a standard attention proxy (Barber and Odean, 2008) and predicts returns on its own (Gervais, Kaniel and Mingelgrin, 2001), so dollar volume may soak up part of the attention effect, especially with the window running to $t$. (2) We now have market equity from the SEC files (\texttt{market\_equity} in \texttt{sec\_controls}), so log market equity, the direct size measure, is available.}
+
+For HML (High-Minus-Low), this is the risk factor of valuations, under which it is expected that \textbf{value} stocks generate higher returns than their \textbf{growth} counterparts. We replace this with a direct proxy of the B/M ratio at the week of measurement.
+
+\begin{equation}
+\text{BM}_{i,t} = \frac{BE_{i,t}}{ME_{i,t}}, \qquad ME_{i,t} = \text{Shares}_{i,t} \times \text{SplitFactor}_{i,t} \times P_{i,t}
+\end{equation}
+where $BE_{i,t}$ is book equity from the latest 10-Q/10-K filed on or before the end of period $t$, and $\text{Shares}_{i,t}$ is the latest reported share count on or before the end of period $t$.
+
+\flag{Corrected: the draft said growth stocks out-earn value stocks. It is the reverse: high-B/M (value) stocks earn higher average returns (Fama and French, 1992, 1993). Also ``week'' vs.\ the 30-day blocks (see units flag above).}
+
+For MOM (Momentum), this is the risk factor of winners and losers continuing their performance streaks. It is expected that stocks that won in previous sessions continue to win, and vice versa. We replace this with a direct proxy of cumulative return, compounded geometrically from $t-11$ to $t-1$.
+
+\begin{equation}
+\text{MOM}_{i,t} = \prod_{k=1}^{11}\big(1 + r_{i,t-k}\big) - 1
+\end{equation}
+
+\flag{(1) ``Geometric sum'' changed to ``compounded geometrically'': cumulative return is a product, not a sum. (2) Double counting: MOM over $t-11$ to $t-1$ contains $r_{i,t-1}$, which you also include as its own control below. Standard practice skips the most recent period: $t-11$ to $t-2$ (Carhart's ``lagged one month'').}
+
+\flag{Data gap: Vol, Size and MOM need about 12 periods of history before the first cross-section, but the central panels carry only 3 pre-sample periods. The older daily prices are in \texttt{full\_history}, so this is buildable, but it is not in the panels yet.}
+
+Our parameter of interest is abnormal attention. We define raw attention as the count of news headlines about a firm; within our data, these are from the following sources: \underline{\hspace{3cm}}. In our dataset, and in practice, we observe news written on a ticker's performance. This creates a reverse causality issue, in which the dependent variable (return) causes movement in the independent variable (attention). We fix this by running a dictionary-based sorting algorithm (Appendix \#), removing any article that mentions previous performance. Net attention is therefore defined as the count of news headlines about a firm, net of any news that reports on past or previous performance. To define abnormal attention, we choose to compare a stock's attention with itself to control for popularity, defining abnormality as a sudden spike relative to the last three time steps. This logic can be summarized using the indicator function as follows:
+\begin{align}
+\text{NetAttn}_{i,t} &= N_{i,t} - N^{\text{price}}_{i,t} \\
+\text{AbnAttn}_{i,t} &= \mathbf{1}\Big\{\, \text{NetAttn}_{i,t} > \frac{1}{3}\sum_{k=1}^{3}\text{NetAttn}_{i,t-k} \Big\}
+\end{align}
+where $N_{i,t}$ is the number of headlines about firm $i$ in period $t$ and $N^{\text{price}}_{i,t}$ is the number of those headlines that report on the stock's price performance.
+
+\flag{(1) Sources blank: the data is FNSPID (Dong, Fan and Peng, 2024), which draws on four stock-market news websites; our file is its Nasdaq.com news file. (2) The algorithm works on \emph{headlines}, not article text, and removes headlines that report the price move (about 16\% of articles, 2018--2020); headlines that report an event alongside the price move are kept. ``Any article that mentions previous performance'' overstates it. (3) ``Fix'' overstates it too: the filter reduces reverse causality but cannot remove it. A big return in $t$ can still trigger coverage that does not mention the price. The prediction form (attention at $t$, return at $t+1$) is the cleaner answer. (4) Wording changed from ``spikes within the last three time steps'' to ``relative to'', to match the formula (current period vs.\ the average of the previous three).}
+
+We recognize that total news coverage extends beyond our dataset, for which we take the following control measures. The first control measure is earnings, with the rationale being that, for any given stock, news coverage and returns will experience a spike in earnings week (should we partial out? An argument can be given that news can rise regardless of good or bad returns, but returns will only rise with good returns). We want to control for any earnings week with an indicator function. The second control is returns, the rationale being that, for any given stock, a positive return in the previous time step can trigger equity research/coverage written about it that is not captured by the dataset. We also view this as a second control measure for headlines written on last period's performance, in case our data filter missed headlines. On the logic of the proxy Carhart variables above, these can also be viewed as controls for the same reasons above. With this, our regression equation is defined by:
+
+\flag{On your note in brackets: yes, keep the earnings control. It raises coverage and moves returns in the same period, so leaving it out would credit earnings news to attention. Including $\text{Earn}_{i,t}$ in the regression is what partials it out. ``Returns will only rise with good returns'' reads as circular; probably ``good news''. Earnings move returns in both directions, so the sign is not the reason for the control.}
+
+\textbf{Attribution form} (same period):
+\begin{multline}
+r_{i,t} - r_{f,t} = \lambda_{0,t} + \lambda^{A}_{t}\,\text{AbnAttn}_{i,t} + \lambda^{V}_{t}\,\text{Vol}_{i,t} + \lambda^{S}_{t}\,\text{Size}_{i,t} + \lambda^{B}_{t}\,\text{BM}_{i,t} \\
+ + \lambda^{M}_{t}\,\text{MOM}_{i,t} + \delta^{E}_{t}\,\text{Earn}_{i,t} + \delta^{R}_{t}\,r_{i,t-1} + \varepsilon_{i,t}
+\end{multline}
+
+\textbf{Prediction form} (next period):
+\begin{multline}
+r_{i,t+1} - r_{f,t+1} = \lambda_{0,t} + \lambda^{A}_{t}\,\text{AbnAttn}_{i,t} + \lambda^{V}_{t}\,\text{Vol}_{i,t} + \lambda^{S}_{t}\,\text{Size}_{i,t} + \lambda^{B}_{t}\,\text{BM}_{i,t} \\
+ + \lambda^{M}_{t}\,\text{MOM}_{i,t} + \delta^{E}_{t}\,\text{Earn}_{i,t} + \delta^{R}_{t}\,r_{i,t-1} + \varepsilon_{i,t+1}
+\end{multline}
+
+\textbf{Time index:} $t = 1, \dots, T$ indexes 30-day periods from March 2018 to February 2020; $i$ indexes the stocks present in period $t$. $\text{Earn}_{i,t} = 1$ if the firm filed an earnings-release 8-K (Item 2.02) during period $t$, or, for firms that never file one, a 10-Q/10-K.
+
+\flag{(1) The prediction form needs $r_{t+1}$, and the panels end in February 2020, so it has 23 cross-sections, not 24. (2) In the prediction form, the earnings announcement that moves $r_{i,t+1}$ is the one in $t+1$. Announcement dates are scheduled in advance, so $\text{Earn}_{i,t+1}$ is a legitimate control there; decide which one you want. (3) $r_f$ is the same for every stock in a period, so in a cross-section it only shifts the intercept; excess or raw returns give the same slopes.}
+
+Based on the FM regression framework, we evaluate the cross-sectional regression in both attribution and prediction form across 24 different periods to create 24 fitted regression equations. The second step involves computing the time-series average of each fitted coefficient, $R^2$, adjusted $R^2$, and the number of observations:
+\begin{equation}
+\bar{\lambda}^{j} = \frac{1}{T}\sum_{t=1}^{T}\hat{\lambda}^{j}_{t}, \qquad j \in \{A, V, S, B, M, E, R\}
+\end{equation}
+(and likewise $\bar{R}^2 = \frac{1}{T}\sum_t R^2_t$, the average adjusted $R^2$, and $\bar{N} = \frac{1}{T}\sum_t N_t$).
+
+We want to test whether the average coefficient for abnormal attention is statistically different from zero; we utilize a t-test for this. The t-statistic is computed by averaging the fitted coefficients and taking the robust s.e.\ of that average over time, as follows:
+\begin{gather}
+H_0:\ \lambda^{A} = 0 \qquad\qquad H_a:\ \lambda^{A} \neq 0 \\[4pt]
+t = \frac{\bar{\lambda}^{A}}{\widehat{\operatorname{SE}}_{NW}\big(\bar{\lambda}^{A}\big)}, \qquad
+\widehat{\operatorname{SE}}_{NW}\big(\bar{\lambda}^{A}\big) = \sqrt{\frac{1}{T}\Big[\hat{\gamma}_0 + 2\sum_{j=1}^{L}\Big(1 - \frac{j}{L+1}\Big)\hat{\gamma}_j\Big]} \\[4pt]
+\hat{\gamma}_j = \frac{1}{T}\sum_{t=j+1}^{T}\big(\hat{\lambda}^{A}_{t} - \bar{\lambda}^{A}\big)\big(\hat{\lambda}^{A}_{t-j} - \bar{\lambda}^{A}\big)
+\end{gather}
+with $L$ lags (Newey and West, 1987), and $t$ compared with a $t_{T-1}$ distribution. With $L = 0$ this reduces to the plain FM standard error, $\operatorname{SD}(\hat{\lambda}^{A}_t)/\sqrt{T}$.
+
+\flag{Corrected: the draft implied the standard errors are averaged over time. They are not. The per-period regression standard errors are not used at all; the s.e.\ is computed once, from how much the 24 fitted coefficients vary over time (and, with Newey--West, how much they carry over from one period to the next). With $T = 24$, keep $L$ small (1--2). Your question is directional (``positive impact''), so a one-sided $H_a: \lambda^{A} > 0$ is also defensible; choose before seeing results.}
+
+We also want to test the combined explanatory power improvements of the model with and without abnormal attention and the new specific controls; for this, we utilize a \textbf{joint Wald test}, with the restricted model being the cross-sectional analog of the Carhart regression and the unrestricted model being the full model with abnormal attention and the relevant controls.
+\begin{gather}
+H_0:\ \lambda^{A} = \delta^{E} = \delta^{R} = 0 \qquad\qquad H_a:\ \text{at least one is} \neq 0 \\[4pt]
+W = \bar{\boldsymbol{\theta}}^{\prime}\,\widehat{\mathbf{V}}^{-1}\,\bar{\boldsymbol{\theta}} \;\sim\; \chi^2_{q}, \qquad
+\bar{\boldsymbol{\theta}} = \big(\bar{\lambda}^{A},\, \bar{\delta}^{E},\, \bar{\delta}^{R}\big)^{\prime}, \quad q = 3
+\end{gather}
+where $\widehat{\mathbf{V}}$ is the Newey--West covariance matrix of the averaged coefficients, built from the time series of $\hat{\boldsymbol{\theta}}_t$ exactly as the standard error above. The average adjusted $R^2$ of the restricted and unrestricted models can be reported side by side as a descriptive comparison.
+
+\flag{Corrected: an ordinary F-test compares the residuals of one restricted and one unrestricted OLS regression. FM produces 24 regressions per model, so there is no single residual sum of squares to compare. The FM-consistent version tests the same hypothesis (the added coefficients are jointly zero) with a Wald test on the averaged coefficients, using their time-series covariance. Dividing $W$ by $q$ gives an $F$-type statistic if you prefer to report an F.}
+
+\subsection*{References used in this section}
+% TODO: move these into references.bib and switch the in-text (Author, Year) mentions to \citet / \citep
+\small
+Barber, B.\ M., \& Odean, T.\ (2008). All that glitters: The effect of attention and news on the buying behavior of individual and institutional investors. \emph{Review of Financial Studies}, 21(2), 785--818.\\
+Carhart, M.\ M.\ (1997). On persistence in mutual fund performance. \emph{Journal of Finance}, 52(1), 57--82.\\
+Dong, Z., Fan, X., \& Peng, Z.\ (2024). FNSPID: A comprehensive financial news dataset in time series. \emph{Proceedings of KDD 2024}.\\
+Fama, E.\ F., \& French, K.\ R.\ (1992). The cross-section of expected stock returns. \emph{Journal of Finance}, 47(2), 427--465.\\
+Fama, E.\ F., \& French, K.\ R.\ (1993). Common risk factors in the returns on stocks and bonds. \emph{Journal of Financial Economics}, 33(1), 3--56.\\
+Fama, E.\ F., \& MacBeth, J.\ D.\ (1973). Risk, return, and equilibrium: Empirical tests. \emph{Journal of Political Economy}, 81(3), 607--636.\\
+Gervais, S., Kaniel, R., \& Mingelgrin, D.\ H.\ (2001). The high-volume return premium. \emph{Journal of Finance}, 56(3), 877--919.\\
+Newey, W.\ K., \& West, K.\ D.\ (1987). A simple, positive semi-definite, heteroskedasticity and autocorrelation consistent covariance matrix. \emph{Econometrica}, 55(3), 703--708.
+
+\section{Estimated Results}
+Talk about your results here and refer to the Tables and Figures in your appendix as you do so. The expectation here is not perfection. An organized and sensible analysis where your coefficients are interpret appropriately will score well. Other good practices include: highlighting the causality in your economic relationship. Why is this relationship causation and not correlation? Is your coefficient statistically significant? What about the overall regression? How did you test this? You may make references to bias in your methodology, but it is not mandatory to do so at this stage. 
+
+
+You can refer to table \ref{appendix:b} and figure \ref{appendix:a} like this.
+
+\section{Conclusion}
+Wrap everything around back to the introduction and emphasize your key takeaways. It's a good practice to restate your thesis, refer back to your results, why they are statistically significant and how you ensured that. It's also a good opportunity to reinforce your argument here so that the reader is able to gauge the analysis your paper is using. 
+
+
+
+\section{Authorship Statement}
+We completed this assignment independently, but with minimal support from ChatGPT. We used ChatGPT to help us with the Stata regression tables and graphs so that we can export them onto LaTex and understand the LaTeX codes. We have attached a copy of our interaction with ChatGPT here: \url{https://www.utm.utoronto.ca/economics/}
+%If you did not cite a paper throughout your text but would like to include it in your bibliography, use command \nocite.
+
+\newpage
+\nocite{LABEL2}
+\bibliographystyle{chicago}
+\bibliography{references}
+
+\newpage
+\appendix
+\renewcommand{\thesection}{\Alph{section}} % Changes section numbering to A, B, etc.
+\renewcommand{\thefigure}{\thesection.\arabic{figure}} % Changes figure numbering to A.1, A.2, etc.
+\renewcommand{\thetable}{\thesection.\arabic{table}}   % Changes table numbering to A.1, A.2, etc.
+\counterwithin{figure}{section} % Resets figure numbering within each appendix section
+\counterwithin{table}{section}  % Resets table numbering within each appendix section
+
+\section{Appendix A: Title of Appendix A}
+% All your figures go here
+% LaTeX exercise - Import a Figure
+\label{appendix:a}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\textwidth]{example-image}
+\caption{Example figure in Appendix A.} 
+\label{fig:appendix_a_1}
+\end{figure}
+
+\newpage
+\section{Appendix B: Title of Appendix B}
+\label{appendix:b}
+% All tables go here.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|c|c|c|}
+\hline
+Column 1 & Column 2 & Column 3 \\ \hline
+Data 1   & Data 2   & Data 3   \\ \hline
+Data 4   & Data 5   & Data 6   \\ \hline
+\end{tabular}
+\caption{Example table}
+\end{table}
+   \centering
+    \input{results}
+    
+\end{document}

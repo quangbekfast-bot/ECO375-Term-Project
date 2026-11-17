@@ -8,6 +8,7 @@ Does abnormal news attention to a stock go with higher (excess) returns? US equi
 | `eco375_tracker.tex/.pdf` | Main tracker: panel model, variables, data issues, open questions |
 | `eco375_model_alt_twfe.tex/.pdf` | Alternative panel spec: firm + week fixed effects |
 | `eco375_tracker_cross_section.tex/.pdf` | Cross-sectional formulations V1-V4 (Fama-MacBeth) with version log |
+| `eco375_data_pipeline.tex/.pdf` | Data preparation and processing pipeline: every step, rules, counts, open items |
 
 ## Data pipeline (`Panel Build/`)
 Run from inside `Panel Build/`, in order:
