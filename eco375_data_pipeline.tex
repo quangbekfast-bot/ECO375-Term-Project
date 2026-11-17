@@ -45,7 +45,7 @@ Step & Script & What it does & Status\\
 8 & \var{08\_sort\_by\_time.py} & Sorts each panel by period, then ticker (one cross-section per block) & \done\\
 check & \var{analysis.py} & Reconciles prices across the three sources & \done\\
 9 & \var{09\_sec\_controls.py} & Book equity, market equity, earnings flags from SEC bulk files & \done\\
-10 & (planned) & Sentiment of each headline (positive / negative / neutral), counted per ticker-week & \todo\\
+10 & \var{10a}, Colab notebook, \var{10b} & FinBERT sentiment of each headline, counted per ticker-week in the filtered weekly panel; audited & \done\\
 -- & (Stata) & Merge SEC controls, build AbnAttn, proxies, run FM & \todo\\
 \midrule
 1--4, 5, 6 & earlier scripts & Weekly panel 2009--2023, annual cross-section, raw-file daily panel, news-only blocks & \supd\\
@@ -249,11 +249,11 @@ Step & What it built & Why superseded\\
 \end{center}
 
 %==========================================================
-\section{Step 10 (planned): headline sentiment}\label{sec:sentiment}
+\section{Step 10: headline sentiment (FinBERT)}\label{sec:sentiment}
 
 \textbf{Goal.} Label each headline in the \emph{filtered} weekly panel positive, negative or neutral, then count per ticker-week: \var{agg\_positive}, \var{agg\_negative}, \var{agg\_neutral}. Check: the three sum to \var{n\_articles} in every row (with an \var{agg\_unscored} column if any headline has no score, so a gap is visible rather than silently breaking the sum). About 1.34 million filtered headlines, Mar 2017 -- Feb 2020.
 
-\textbf{Status.} FNSPID does not provide its GPT scores, and rerunning its GPT-3.5 script needs a paid API key; a paid hosted FinBERT service caps requests at 300--2,000 per day (8 months to 4.5 years for our headlines). So we run the open-source FinBERT model ourselves, free, in Google Colab. Scripts ready; \textbf{waiting for the Colab run.}
+\textbf{Status.} FNSPID does not provide its GPT scores, and rerunning its GPT-3.5 script needs a paid API key; a paid hosted FinBERT service caps requests at 300--2,000 per day (8 months to 4.5 years for our headlines). So we run the open-source FinBERT model ourselves, free, in Google Colab. \textbf{Done 17 Nov 2026} (results and audit in Section~\ref{sec:sentaudit}).
 
 \textbf{Workflow.}
 \begin{enumerate}
@@ -277,7 +277,199 @@ Method & Strengths & Weaknesses\\
 \end{tabularx}
 \end{center}
 
-\textbf{Recommendation.} Use a learned model as the main measure (FinBERT, or the FNSPID GPT scores if their coverage is good) and Loughran--McDonald as a robustness check: if both give the same sign for the attention--return result, the result does not hinge on one scoring method. An independent audit of a random sample of headlines (agreement rate, list of ambiguous headlines) goes into this section once scores exist.
+\textbf{Recommendation.} FinBERT is the main measure; Loughran--McDonald can serve as a robustness check: if both give the same sign for the attention--return result, the result does not hinge on one scoring method.
+
+%==========================================================
+\section{Sentiment results and audit}\label{sec:sentaudit}
+
+\textbf{Run.} \var{ProsusAI/finbert} in Google Colab on a T4 GPU (transformers 5.22.1, torch 2.14.1), finished 17 Nov 2026 14:40 UTC; all 685,259 distinct headlines scored (\var{finbert\_run\_info.txt}). Merged into \var{panel\_weekly\_filtered}: the four counts sum to \var{n\_articles} in all 781,667 covered ticker-weeks; no headline unscored.
+
+\begin{center}\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+ & Positive & Negative & Neutral\\
+\midrule
+Distinct headlines (685,259) & 25.3\% & 15.8\% & 58.9\%\\
+Article rows, sample period (955,153) & 22.8\% & 14.9\% & 62.2\%\\
+\bottomrule
+\end{tabular}
+\end{center}
+FinBERT's confidence (highest of the three probabilities): median 0.89; 3.3\% of headlines below 0.5.
+
+\subsection{Audit design}
+An independent agent labeled 500 headlines \emph{blind} (it never saw FinBERT's labels, and confirmed it did not open the file holding them), reading each one and judging the tone for the company's shareholders, the same standard FinBERT is trained on. Sample: 120 random headlines from each FinBERT label, 90 low-confidence headlines (top probability $<$ 0.55) and the 50 headlines tagged to the most tickers. Each headline also got a flag: \emph{ok}, \emph{ambiguous}, \emph{multi-firm} (roundup), \emph{not a headline} (several items run together, truncated text) or \emph{price report} (missed by our filter). File: \var{Panel Build/data/sentiment\_audit\_sample.csv}.
+
+The audit is a second reader, not ground truth: where the two disagree, either can be wrong.
+
+\subsection{Agreement}
+\begin{center}\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Group & Headlines & Agreement\\
+\midrule
+FinBERT positive (random) & 120 & 85.0\%\\
+FinBERT neutral (random) & 120 & 66.7\%\\
+FinBERT negative (random) & 120 & 56.7\%\\
+Low confidence & 90 & 40.0\%\\
+Most-tagged headlines & 50 & 72.0\%\\
+\midrule
+Random 360, weighted to FinBERT's label mix in the data & & 69.3\%\\
+All 500 (stratified, unweighted); Cohen's $\kappa$ = 0.46 (``moderate'') & 500 & 64.4\%\\
+Audit flag ok / not ok & 312 / 188 & 72.4\% / 51.1\%\\
+\bottomrule
+\end{tabular}
+
+\smallskip
+Random 360 (rows = FinBERT, columns = audit):\quad
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+ & negative & neutral & positive\\
+\midrule
+negative & 68 & 30 & 22\\
+neutral & 12 & 80 & 28\\
+positive & 6 & 12 & 102\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Reading.}
+\begin{itemize}
+  \item \textbf{Positive labels are reliable} (85\% agreement). \textbf{Negative labels are the weakest} (57\%): FinBERT reacts to negative \emph{words} even when the headline is mixed (``Beats on Q3 Earnings, Sales Fall Shy'') or bullish overall (``Dow Suffers Record Slump: 5 Value Picks to Buy on the Dip'').
+  \item \textbf{Neutral misses opinion pieces}: ``Should You Buy?'', ``Worth Holding on to'', ``We Are Staying Away From Halliburton'' read as neutral to FinBERT, as clear calls to the audit.
+  \item Disagreement concentrates where headlines are genuinely hard (51\% agreement on flagged headlines vs.\ 72\% on clear-cut ones), so part of it is ambiguity, not model error.
+\end{itemize}
+
+\subsection{Recurring headline templates (whole data set)}
+Counts over all 685,259 distinct headlines; ``rows'' = ticker-article rows using them, share of all 1,344,847 rows.
+\begin{center}\small
+\begin{tabularx}{\textwidth}{@{}L rrr rrr@{}}
+\toprule
+Template & Distinct & Rows & Share & Pos & Neg & Neu\\
+\midrule
+\textbf{Earnings calendars} (``Notable earnings after Tuesday's close'') & 17 & 9,220 & 0.7\% & \textbf{99.8\%} & 0.0\% & 0.2\%\\
+Stock-pick lists (``5 Stocks to Buy\ldots'') & 13,111 & 42,861 & 3.2\% & 19.1\% & 5.9\% & 75.0\%\\
+Ex-dividend notices & 20,147 & 38,124 & 2.8\% & 0.0\% & 0.8\% & 99.2\%\\
+Earnings previews (``Will X Beat?'', ``What's in Store'') & 10,627 & 21,388 & 1.6\% & 5.6\% & 10.1\% & 84.2\%\\
+Mixed results (beat and miss / decline together) & 9,940 & 14,082 & 1.0\% & 37.2\% & 43.3\% & 19.5\%\\
+Validea / guru-screen reports & 3,260 & 6,148 & 0.5\% & 0.0\% & 0.0\% & 100\%\\
+Shareholder-alert / law-firm notices & 2,923 & 5,488 & 0.4\% & 4.7\% & 38.5\% & 56.8\%\\
+Insider buy / sell notices & 2,413 & 3,193 & 0.2\% & 2.5\% & 1.3\% & 96.2\%\\
+\bottomrule
+\end{tabularx}
+\end{center}
+Templates matched with simple text patterns, so the counts are approximate.
+
+\textbf{The one systematic error that matters:} the 17 earnings-calendar headlines are each tagged to many tickers (9,220 rows) and FinBERT calls them positive. They list companies reporting that day, so they land exactly in \emph{earnings weeks}: they add spurious positive counts where earnings news already moves returns. Law-firm notices (``investigates claims on behalf of investors'') are bad news for the stock but are mostly labeled neutral; most list several tickers.
+
+\subsection{Decisions for you}
+\begin{itemize}
+  \item \decide{} Recode the earnings-calendar headlines to neutral (recommended; 17 headlines, a one-line rule in \var{10b}), or drop them from the counts.
+  \item \decide{} Recode law-firm / shareholder-alert notices to negative, or leave them.
+  \item \decide{} Treat mixed-results headlines (beat and miss) as neutral, or keep FinBERT's call.
+  \item \decide{} Optionally count only confident labels (e.g.\ top probability $\ge$ 0.6) and put the rest in neutral, as a robustness check.
+  \item \decide{} How sentiment enters the model, e.g.\ net tone $=(\text{pos}-\text{neg})/n$, or separate positive and negative counts.
+\end{itemize}
+
+\subsection{Headlines to review}
+High-confidence disagreements (FinBERT confidence $\ge$ 0.85, the audit disagrees) followed by other headlines the audit flagged as not a real headline or a missed price report. Columns: headline id, headline (cut at 95 characters), FinBERT label (confidence), audit label, audit flag and note.
+
+{\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.9cm} >{\raggedright\arraybackslash}p{6.6cm} >{\raggedright\arraybackslash}p{1.7cm} >{\raggedright\arraybackslash}p{1.2cm} >{\raggedright\arraybackslash}p{5.0cm}@{}}
+\toprule
+ID & Headline & FinBERT & Audit & Flag: note\\
+\midrule
+\endhead
+342248 & GATX Earnings Outperform Estimates But Decrease Y/Y in Q3 & negative (0.97) & positive & ambiguous: Beat estimates but earnings down YoY\\
+32208 & General Mills (GIS) Beats on Q3 Earnings, Sales Fall Shy & negative (0.97) & neutral & ambiguous: Earnings beat but sales miss\\
+40842 & Stocks Pare Losses As Apple Suppliers Sink, But Homebuilders Rally & negative (0.96) & neutral & multi firm: Mixed market wrap across sectors\\
+164999 & 5 Stocks to Fall Back On Amid Lurking Government Shutdown & negative (0.95) & positive & multi firm: Defensive stock-pick list\\
+617593 & Transportation Average Breakout Could Signal Stock Outperformance Ahead & negative (0.95) & positive & ok: \\
+340297 & US Market Indexes Continue Losses, Tech Stocks Rally & negative (0.95) & neutral & ambiguous: Mixed market wrap\\
+129127 & Will Macy's (M) Succeed in Reporting Higher Q3 Earnings? & positive (0.95) & neutral & ambiguous: Earnings preview question\\
+612406 & Dow Jones News: Disney's Results Impress; More Cracks Found in Boeing Planes & negative (0.95) & neutral & multi firm: Positive Disney and negative Boeing in one headline\\
+245038 & Commercial P\&C Rates Up Again In Q1, Alternative Capital Still Pressuring & positive (0.95) & neutral & ambiguous: Mixed: rates up but capital pressure; industry-level\\
+443108 & Litigation risk seen increased for firearms industry & positive (0.95) & negative & ok: \\
+98317 & Plains All American Pipeline, Plains GP Report Reduction Of Hedged Crude Oil, NGL Inventory ... & negative (0.95) & positive & ambiguous: Debt reduction positive; inventory cut neutral\\
+116781 & Amicus Therapeutics Inc (FOLD) Chairman \& CEO John F Crowley Sold \$6.4 million of Shares & neutral (0.95) & negative & ambiguous: Insider sale; often routine\\
+149898 & UPDATE: Oracle Sees Q3 Total Sales Growth 2-4\% & positive (0.95) & neutral & ambiguous: Guidance given without consensus comparison\\
+18892 & Weekly CEO Buys Highlight & neutral (0.94) & positive & multi firm: Insider buying roundup across stocks\\
+413170 & Golub Capital BDC (GBDC) Meets Q1 Earnings Estimates & positive (0.93) & neutral & ok: \\
+101597 & U.S. Tally of Oil Rigs Flat Amid Harvey Uncertainty & negative (0.93) & neutral & ok: \\
+635581 & McConnell Says The Senate Will Not Take Up USMCA Next Week & neutral (0.93) & negative & ambiguous: Trade deal delay; no specific stock\\
+372414 & Validea Martin Zweig Strategy Daily Upgrade Report - 11/30/2018 & neutral (0.92) & positive & multi firm: Screen upgrade list across stocks\\
+64776 & 3 Value Stocks for Baby Boomers & neutral (0.92) & positive & multi firm: Bullish list of value stocks\\
+499780 & Prudential (PRU) is a Top Dividend Stock Right Now: Should You Buy? & neutral (0.92) & positive & ok: \\
+554076 & Here's Why it is Worth Holding on to Xylem (XYL) Stock for Now & neutral (0.92) & positive & ok: \\
+267155 & Becoming A Venture Capitalist Through Overstock & neutral (0.92) & positive & ambiguous: Bullish framing of venture holdings\\
+225633 & CenterState Bank Corporation Announces Acquisition of Charter Financial Corporation For \$22.... & neutral (0.92) & positive & ok: \\
+553842 & 8 SHEconomy Stocks Morgan Stanley Says to Buy & neutral (0.92) & positive & multi firm: Buy list across several stocks\\
+154833 & This Top Stock Play Puts Hot Chips Intel, Micron On Your Radar & neutral (0.92) & positive & ok: \\
+327801 & Jefferies cautious on Anheuser-Busch InBev & neutral (0.91) & negative & ok: \\
+504297 & Wrangler and Lee Jeans Get Cut Loose & negative (0.91) & neutral & ambiguous: Spin-off framing; direction unclear\\
+264598 & Let the Bidding War Begin & neutral (0.91) & positive & ambiguous: Vague; bidding war good for target only\\
+403314 & In A Most Optimistic Scenario, The Bull Market Has 1 Year Left & neutral (0.91) & negative & ok: \\
+455323 & 'McDonald's is trimming its late night menu' -CNBC & negative (0.91) & neutral & ambiguous: Menu cut could mean efficiency or weakness\\
+493120 & 2 Major U.S. Metropolitan Areas Turn To A New Rat Control Method By Senes Tech & neutral (0.90) & positive & ok: \\
+342964 & Top Ranked Value Stocks to Buy for October 24th & neutral (0.90) & positive & multi firm: Bullish value stock list\\
+629541 & LPL Financial Advisors Expected to Save Hours Each Month Using New Account Opening Process & neutral (0.90) & positive & ok: \\
+568478 & The Fed Is Shaking Up the Bank Industry's Payment System & negative (0.90) & neutral & ambiguous: Industry change; direction for banks unclear\\
+527263 & We Are Staying Away From Halliburton & neutral (0.90) & negative & ok: \\
+3702 & Notable earnings after Tuesday's close & positive (0.90) & neutral & multi firm: Earnings calendar for many companies\\
+537704 & Honda backs full-year profit view & negative (0.90) & neutral & ok: \\
+3701 & Notable earnings after Monday's close & positive (0.89) & neutral & multi firm: Earnings calendar for many companies\\
+12443 & 5 Dividend Aristocrats Where Analysts See Capital Gains & neutral (0.89) & positive & multi firm: Bullish list of dividend aristocrats\\
+4808 & Notable earnings after Wednesday's close & positive (0.89) & neutral & multi firm: Earnings calendar for many companies\\
+148898 & M\&T Increases Prime Rate From 4.25\% to 4.5\% & positive (0.89) & neutral & ok: \\
+741 & Notable earnings after Thursday's close & positive (0.89) & neutral & multi firm: Earnings calendar for many companies\\
+445480 & Barclays Downgrades NorthWestern to Underweight, Raises Price Target to \$65 & positive (0.89) & negative & ambiguous: Downgrade but higher price target\\
+32575 & There Have Been Some Notable Cybersecurity Breaches In 2017 (And It's Only March) & negative (0.89) & neutral & ambiguous: Breaches bad generally, good for security vendors\\
+1903 & Notable earnings before Friday's open & positive (0.88) & neutral & multi firm: Earnings calendar for many companies\\
+163984 & CarMax Grows on Store Expansion, Rising SG\&A Expenses a Woe & negative (0.88) & positive & ambiguous: Growth with rising expense caveat\\
+742 & Notable earnings before Thursday's open & positive (0.88) & neutral & multi firm: Earnings calendar for many companies\\
+3703 & Notable earnings before Monday's open & positive (0.88) & neutral & multi firm: Earnings calendar for many companies\\
+218053 & Silver: Speculators Are Lost, Demand Is Great & negative (0.88) & positive & ok: \\
+71461 & 4 Stocks To Avoid, According To These Fast Money Traders & neutral (0.87) & negative & multi firm: Bearish list of several stocks\\
+219479 & The 15 Best "Turnaround Story" Stocks Right Now & neutral (0.87) & positive & multi firm: Bullish list of many stocks\\
+12330 & Watching Coal Stocks As Trump Signs Measure Repealing Obama-Era Coal Rule & neutral (0.87) & positive & ok: \\
+137665 & The Highest Potential Company You've Never Heard Of & neutral (0.87) & positive & ok: \\
+3704 & Notable earnings before Tuesday's open & positive (0.87) & neutral & multi firm: Earnings calendar for many companies\\
+313114 & Huge Ram month lifts Fiat Chrysler & negative (0.86) & positive & ok: \\
+427693 & Market Rally Halts on Global Growth Concern: 5 Defensive Picks & negative (0.86) & positive & multi firm: Weak market but defensive stock-pick list\\
+549278 & IShares ETF Owns Some Of Today's Best Medical Stocks & neutral (0.86) & positive & ok: \\
+4809 & Notable earnings before Wednesday's open & positive (0.85) & neutral & multi firm: Earnings calendar for many companies\\
+86753 & New England Investment \& Retirement Group, Inc. ... & neutral (0.94) & neutral & not a headline: Truncated; only a firm name\\
+637541 & Lumber Liquidators Related To Favorable Tariff Exclusions From US Trade Rep; Co. Sees Recove... & positive (0.92) & positive & not a headline: Long run-on press-release sentence\\
+583308 & Banco Santander Mxico Will Report 'Q--9 Results After Market Close On October '--st, ... & neutral (0.92) & neutral & not a headline: Garbled, truncated scheduled-event notice\\
+514155 & Global Trends in Hepatitis E Diagnostic Tests Market ----9 :: Size \& Share Detailed ... & neutral (0.90) & neutral & not a headline: Garbled, truncated market-research spam title\\
+97511 & Aurielius Value, Responding To PetMed Statement Earlier On Paid Keywords, Tells Benzinga 'At... & neutral (0.82) & negative & not a headline: Long quote-filled blurb of short-seller claims\\
+447951 & Cyclacel Pharma shares are trading higher after the company announced an independent investi... & positive (0.93) & positive & not a headline: Full-sentence blurb; garbled description\\
+87582 & Mondelz International Reports Q2 Adj. EPS \$0.48 Est., Sales \$0.46 Est., Sales \$5.98B vs \$6.... & neutral (0.75) & neutral & not a headline: Garbled figures; sales slightly below estimate\\
+512819 & Clovis Oncology shares are trading lower after its S-3 showed registration for about 1.48 mi... & negative (0.97) & negative & not a headline: Full-sentence blurb about offering and price\\
+146983 & BioMarin Shares Up 6.38\% After Reporting Saturday From ASH Data For Valoctocogene Roxaparvov... & positive (0.94) & positive & not a headline: Long press-release sentence with price move\\
+558391 & The Estee Lauder Companies shares are trading lower in sympathy with Ulta Beauty after the c... & negative (0.97) & negative & not a headline: Full-sentence blurb; sympathy price move\\
+294707 & NeoPhotonics shares up 5.1\% after the company beat Q2 earnings estimates; The company issued... & positive (0.95) & positive & not a headline: Full-sentence blurb with price move\\
+672181 & Wheel Market ---- Global Industry Demand, Recent Trends, Size and Share Estimation by ... & neutral (0.93) & neutral & not a headline: Garbled, truncated market-research spam title\\
+557844 & Ulta Beauty shares are trading lower after the company reported worse-than-expected Q2 EPS a... & negative (0.97) & negative & not a headline: Two-sentence news blurb, not headline\\
+315123 & Micron Technology shares are down 10\% after analysts at Baird cut their price target on the ... & negative (0.97) & negative & not a headline: Full-sentence blurb; also reports 10\% drop\\
+337062 & Insight Enterprises, Inc. to Report Third Quarter ----8 Financial Results on November 7, ... & neutral (0.94) & neutral & not a headline: Truncated with garbled characters; scheduled date\\
+386386 & Bridgeline Digital shares are trading lower after the company reported Q4 EPS is \$0.11 lower... & negative (0.98) & negative & not a headline: Full-sentence news blurb\\
+196178 & TJX Shares Indicated Up Nearly 7\% Premarket Despite Mixed Q4 Earnings Report; Other Dept. St... & positive (0.95) & positive & price report: Premarket price moves for TJX and peers\\
+190822 & Why Is Zions Bancorporation (ZION) Up 1.5\% Since Its Last Earnings Report? & positive (0.90) & positive & price report: Template about post-earnings 1.5\% gain\\
+47285 & U.S. Steel Plummets 25\% After Q1 Miss & negative (0.97) & negative & price report: Price drop headline, though tied to Q1 miss\\
+274212 & Why Shares of The Simply Good Foods Company Popped 11.4\% on Tuesday & positive (0.72) & positive & price report: Explains an 11.4\% share jump\\
+474124 & GE Aviation Rival Woodward Gaps Up To Big Gain ... Again & positive (0.91) & positive & price report: Mainly reports a gap-up gain\\
+503756 & Ampio Pharmaceuticals Shares Resume Trading; Currently At \$0.92/Share & neutral (0.62) & neutral & price report: Trading resumption notice with price quote\\
+646658 & Here's Why Applied Therapeutics Rocketed Higher Today & positive (0.61) & positive & price report: Explains a sharp share jump\\
+546942 & Tractor Supply shares are trading lower on seemingly no company-specific news. & negative (0.97) & negative & price report: Reports shares trading lower, no news\\
+2642 & Hershey Recovering After Big Drop Following Q4 Report & positive (0.49) & positive & price report: Mainly describes price rebound after drop\\
+64170 & Whirlpool Shares Spike To High of \$193.73, Up 1.7\% On Day & positive (0.94) & positive & price report: Reports intraday high and 1.7\% gain\\
+132113 & Puma (PBYI) Falls Despite Narrower-Than-Expected Q3 Loss & negative (0.95) & negative & price report: Price drop despite better-than-expected loss\\
+78587 & Dominion Diamond (DDC) Looks Good: Stock Adds 5.6\% in Session & positive (0.95) & positive & price report: Mainly reports 5.6\% session gain\\
+65262 & Why Walgreens Boots Alliance Fell 6.3\% in May & negative (0.97) & negative & price report: Explains a 6.3\% monthly decline\\
+\bottomrule
+\end{longtable}
+}
 
 %==========================================================
 \section{Known data problems still open}

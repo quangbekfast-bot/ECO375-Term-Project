@@ -42,6 +42,8 @@ Each panel starts with **pre-sample periods** (`pre_sample = 1`) before the firs
 - daily: 26-28 Feb 2018 (3 trading days); monthly: blocks -2..0 (3 Dec 2017 - 2 Mar 2018)
 - **weekly: 52 weeks, blocks -51..0 (4 Mar 2017 - 2 Mar 2018)**, the longest window in the model (52-week volatility). Shorter windows (12-week size / momentum, 3-week attention average) fit inside it.
 
+The **filtered** weekly panel also carries headline sentiment (step 10, FinBERT `ProsusAI/finbert`): `agg_positive` / `agg_negative` / `agg_neutral` = articles in the ticker-week whose headline FinBERT labels that way; `agg_unscored` (all 0) is a check column. The four sum to `n_articles` and are blank where `n_articles` is blank. Sample period: 22.8% positive, 14.9% negative, 62.2% neutral. Audit of 500 headlines: `Panel Build/data/sentiment_audit_sample.csv` (see pipeline doc, section 11).
+
 Weekly panels also carry `ret_d_sum`, `ret_d_sq_sum`, `n_ret`: the sum, sum of squares and count of the week's daily returns. The SD of daily returns over any run of weeks is `sqrt((S2 - S1^2/n) / (n - 1))`, with S1, S2, n summed over those weeks (e.g. `rangestat` or `tsegen` in Stata, or rolling sums over 52 lags).
 Use pre-sample rows only to build lagged / rolling variables; the analysis sample is `pre_sample = 0`.
 Daily returns are blank across a gap of more than 180 days in a ticker's price history (stale rows before an IPO, ticker re-use).

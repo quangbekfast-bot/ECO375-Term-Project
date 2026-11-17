@@ -1,0 +1,7 @@
+model: ProsusAI/finbert
+transformers: 5.22.1
+torch: 2.14.1+cu130
+device: cuda
+max_len: 128
+headlines: 685259
+finished: 2026-11-17 14:40 UTC
