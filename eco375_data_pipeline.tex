@@ -253,7 +253,14 @@ Step & What it built & Why superseded\\
 
 \textbf{Goal.} Label each headline in the \emph{filtered} weekly panel positive, negative or neutral, then count per ticker-week: \var{agg\_positive}, \var{agg\_negative}, \var{agg\_neutral}. Check: the three sum to \var{n\_articles} in every row (with an \var{agg\_unscored} column if any headline has no score, so a gap is visible rather than silently breaking the sum). About 1.34 million filtered headlines, Mar 2017 -- Feb 2020.
 
-\textbf{Status.} On hold while we look for FNSPID's own GPT-scored sentiment files. The original plan (the FNSPID GPT-3.5 script, scores 1--5) cannot run in this setup: OpenAI and HuggingFace are not reachable from here and the script needs a paid API key.
+\textbf{Status.} FNSPID does not provide its GPT scores, and rerunning its GPT-3.5 script needs a paid API key; a paid hosted FinBERT service caps requests at 300--2,000 per day (8 months to 4.5 years for our headlines). So we run the open-source FinBERT model ourselves, free, in Google Colab. Scripts ready; \textbf{waiting for the Colab run.}
+
+\textbf{Workflow.}
+\begin{enumerate}
+  \item \var{10a\_sentiment\_input.py}: the 1,344,847 filtered ticker-article rows (Mar 2017 -- Feb 2020) use only \textbf{685,259 distinct headlines} (487,152 first seen in the sample period), because one headline is often tagged to several tickers. Each distinct headline is scored once. Outputs \var{finbert\_input\_headlines.csv.gz} (21 MB) and \var{article\_headline\_map.csv.gz} (which rows use which headline).
+  \item \var{finbert\_colab.ipynb} (Colab, free T4 GPU): \var{ProsusAI/finbert}, three labels directly, probabilities kept. Headlines are short (median $\sim$15 tokens, longest $\sim$91 vs.\ the model's 512 limit), so nothing is cut off. Progress is saved to Google Drive every 50,000 headlines and a rerun resumes. Tested here on a stand-in model: resume after an interruption works, and batched scores match one-at-a-time scores exactly.
+  \item \var{10b\_merge\_sentiment.py}: copies each headline's label to every row that uses it, counts per ticker-week, adds the four columns to the filtered weekly panel and stops if they do not sum to \var{n\_articles}. Tested with placeholder labels: sums hold in all 781,667 covered rows; existing columns unchanged.
+\end{enumerate}
 
 \textbf{Method options}, in the order I would use them:
 \begin{center}\small

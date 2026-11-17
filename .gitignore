@@ -21,6 +21,10 @@ Panel Build/data/panel_weekly_full.csv
 Panel Build/data/panel_weekly_raw_2018-03_2020-02.csv
 Panel Build/data/panel_weekly_filtered_2018-03_2020-02.csv
 Panel Build/data/_backup_pre52/
+# step 10 working files (rebuild with 10a); the FinBERT labels themselves are kept
+Panel Build/data/_10_work/*
+!Panel Build/data/_10_work/finbert_labels.csv.gz
+!Panel Build/data/_10_work/finbert_run_info.txt
 Panel Build/data/news_ticker_day.csv
 Panel Build/data/news_daily_*.csv
 Panel Build/data/news_weekly_*.csv

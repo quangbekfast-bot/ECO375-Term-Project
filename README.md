@@ -22,6 +22,9 @@ Run from inside `Panel Build/`, in order:
 | 7 | `07_central_panel.py` (batches `0 3`, `1 3`, `2 3`, then `merge daily`, `merge weekly`, `merge monthly`) | `panel_{daily,weekly,monthly}_{raw,filtered}_2018-03_2020-02.csv`: central panels, news + prices |
 | 8 | `08_sort_by_time.py` | same files, sorted by time then ticker (one cross-section per period) |
 | 9 | `09_sec_controls.py` (stages: see top of script; needs `SEC DATA/`) | `sec_controls_{weekly,monthly}_2018-03_2020-02.csv`: book equity, market equity, earnings flags per ticker-block |
+| 10a | `10a_sentiment_input.py` | `_10_work/finbert_input_headlines.csv.gz` (685,259 distinct filtered headlines, Mar 2017 - Feb 2020) + `article_headline_map.csv.gz` |
+| 10 | `finbert_colab.ipynb` (run in Google Colab, T4 GPU) | `_10_work/finbert_labels.csv.gz`: positive / negative / neutral per headline (FinBERT, ProsusAI/finbert) |
+| 10b | `10b_merge_sentiment.py` | adds `agg_positive`, `agg_negative`, `agg_neutral`, `agg_unscored` to the filtered weekly panel; checks they sum to `n_articles` |
 | check | `analysis.py` | `analysis_report.txt`: price reconciliation across sources |
 
 Also: `headline_classifier.py` (keyword rules that flag price-report headlines), `03_merge_controls.py` (merges WRDS / Ken French controls once downloaded into `raw/`).
