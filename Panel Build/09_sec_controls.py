@@ -314,7 +314,7 @@ if stage == "build":
         else:
             evs.append((c, k, g.restated_filed.min(), 1))
     ev = pd.DataFrame(evs, columns=["cik", "ratio", "event_filed", "approx_date"]).drop_duplicates(["cik", "event_filed"])
-    ev = ev[(ev.event_filed > "2017-06-01") & (ev.event_filed <= SNAPSHOT)]
+    ev = ev[(ev.event_filed > "2016-06-01") & (ev.event_filed <= SNAPSHOT)]     # weekly panel starts Mar 2017
     ev.to_csv(WORK / "split_events.csv", index=False)
     print(f"split events used: {len(ev):,} ({int(ev.approx_date.sum())} dated approximately)")
 
@@ -402,6 +402,8 @@ if stage == "build":
             hit = hit[(hit.date >= hit.block_start) & (hit.date <= hit.block_end)].drop_duplicates(["cik", "block"])
             q = q.merge(hit[["cik", "block"]].assign(**{kind: 1}), on=["cik", "block"], how="left")
             q[kind] = q[kind].fillna(0).astype(int)
+            # filing histories were read from 2017-11-01 on: earlier blocks (weekly pre-sample) are unknown, not 0
+            q[kind] = q[kind].where(q.block_start >= pd.Timestamp("2017-11-01"))
         for c in ("be_filed", "shares_filed"):
             q[c] = q[c].dt.strftime("%Y-%m-%d")
         cols = ["ticker", "block", "cik", "book_equity", "be_period_end", "be_filed", "shares_out", "shares_filed",

@@ -17,6 +17,10 @@ Twitter Data Set/full_dataset-release.csv
 Panel Build/data/panel_daily_*.csv
 Panel Build/data/panel_weekly_base.csv
 Panel Build/data/panel_weekly_full.csv
+# weekly panels are pushed as .csv.gz too (the 52-week pre-sample history put the plain .csv over 100 MB)
+Panel Build/data/panel_weekly_raw_2018-03_2020-02.csv
+Panel Build/data/panel_weekly_filtered_2018-03_2020-02.csv
+Panel Build/data/_backup_pre52/
 Panel Build/data/news_ticker_day.csv
 Panel Build/data/news_daily_*.csv
 Panel Build/data/news_weekly_*.csv

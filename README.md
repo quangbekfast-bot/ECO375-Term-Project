@@ -18,8 +18,8 @@ Run from inside `Panel Build/`, in order:
 | 1 | `01_news_ticker_day.py` | `news_ticker_day.csv`: articles per ticker per trading day, all years |
 | 2 | `02_build_weekly_panel.py` (batches, then `merge`) | `panel_weekly_base.csv`: weekly returns + attention, 2009-2023 |
 | 4 | `04_build_cross_section.py <year>` | `cross_section_<year>.csv`: annual cross-section (V1; superseded, outputs not kept) |
-| 5b | `05b_news_daily_panel_matched.py` | daily article counts on matched trading days, Dec 2017 - Feb 2020 (Dec-Feb = pre-sample baseline) |
-| 7 | `07_central_panel.py` (batches `0 3`, `1 3`, `2 3`, then `merge`) | `panel_{daily,weekly,monthly}_{raw,filtered}_2018-03_2020-02.csv`: central panels, news + prices |
+| 5b | `05b_news_daily_panel_matched.py` | daily article counts on matched trading days, Feb 2017 - Feb 2020 (Feb 2017 - Feb 2018 = pre-sample history) |
+| 7 | `07_central_panel.py` (batches `0 3`, `1 3`, `2 3`, then `merge daily`, `merge weekly`, `merge monthly`) | `panel_{daily,weekly,monthly}_{raw,filtered}_2018-03_2020-02.csv`: central panels, news + prices |
 | 8 | `08_sort_by_time.py` | same files, sorted by time then ticker (one cross-section per period) |
 | 9 | `09_sec_controls.py` (stages: see top of script; needs `SEC DATA/`) | `sec_controls_{weekly,monthly}_2018-03_2020-02.csv`: book equity, market equity, earnings flags per ticker-block |
 | check | `analysis.py` | `analysis_report.txt`: price reconciliation across sources |
@@ -32,19 +32,23 @@ Also: `headline_classifier.py` (keyword rules that flag price-report headlines),
 ## Data in this repo (`Panel Build/data/`)
 Central panels, Mar 2018 - Feb 2020, news counts + prices, sorted by time then ticker (one cross-section per period):
 - `panel_daily_{raw,filtered}_2018-03_2020-02.csv.gz`: compressed; unzip (7-Zip, or `pandas.read_csv` reads .gz directly)
-- `panel_weekly_{raw,filtered}_2018-03_2020-02.csv`
+- `panel_weekly_{raw,filtered}_2018-03_2020-02.csv.gz`: compressed, same as daily (over 100 MB unzipped since the 52-week history was added)
 - `panel_monthly_{raw,filtered}_2018-03_2020-02.csv`
 
-Each panel starts with **3 pre-sample periods** (`pre_sample = 1`) before the first cross-section, so a moving average over the previous 3 periods exists from the first sample period on:
-daily 26-28 Feb 2018 (3 trading days), weekly blocks -2..0 (10 Feb - 2 Mar 2018), monthly blocks -2..0 (3 Dec 2017 - 2 Mar 2018).
-Use these rows only to build lagged / moving-average variables; the analysis sample is `pre_sample = 0`.
+Each panel starts with **pre-sample periods** (`pre_sample = 1`) before the first cross-section, so lagged and rolling-window variables exist from the first sample period on:
+- daily: 26-28 Feb 2018 (3 trading days); monthly: blocks -2..0 (3 Dec 2017 - 2 Mar 2018)
+- **weekly: 52 weeks, blocks -51..0 (4 Mar 2017 - 2 Mar 2018)**, the longest window in the model (52-week volatility). Shorter windows (12-week size / momentum, 3-week attention average) fit inside it.
+
+Weekly panels also carry `ret_d_sum`, `ret_d_sq_sum`, `n_ret`: the sum, sum of squares and count of the week's daily returns. The SD of daily returns over any run of weeks is `sqrt((S2 - S1^2/n) / (n - 1))`, with S1, S2, n summed over those weeks (e.g. `rangestat` or `tsegen` in Stata, or rolling sums over 52 lags).
+Use pre-sample rows only to build lagged / rolling variables; the analysis sample is `pre_sample = 0`.
+Daily returns are blank across a gap of more than 180 days in a ticker's price history (stale rows before an IPO, ticker re-use).
 
 SEC controls (step 9), one row per ticker-block, same blocks as the weekly / monthly panels. Merge on `ticker` + `block`:
 - `book_equity`: shareholders' equity from the latest 10-Q/10-K filed on or before the block's last day (`be_period_end`, `be_filed`)
 - `shares_out`, `shares_filed`: latest cover-page share count filed on or before the block's last day
 - `split_factor`: scales an old share count to the split basis of the panel prices (prices are split-adjusted to ~Jul 2020)
 - `market_equity` = `shares_out` x `split_factor` x `close_end`. Book-to-market = `book_equity / market_equity`
-- `earn_8k` = 1 if an earnings-release 8-K (Item 2.02) was filed inside the block; `filing_10qk` = 1 if a 10-Q/10-K was filed inside the block (fallback for firms that never file Item 2.02)
+- `earn_8k` = 1 if an earnings-release 8-K (Item 2.02) was filed inside the block (blank for weekly blocks before Nov 2017: filing histories were read from Nov 2017 on); `filing_10qk` = 1 if a 10-Q/10-K was filed inside the block (fallback for firms that never file Item 2.02)
 - `sec_matched` = 0: ticker not found at the SEC (mostly ETFs, funds, foreign listings). `foreign_filer` = 1: files 20-F/40-F, so the share count may be ordinary shares rather than ADRs (market equity unreliable). `cik_shared` = 1: several tickers share one filer (ETF trusts), market equity meaningless
 - Source: SEC bulk files `companyfacts.zip`, `submissions.zip`, `company_tickers.json` (sec.gov, EDGAR bulk data), kept in `SEC DATA/` (not in repo, ~3 GB)
 

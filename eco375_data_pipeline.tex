@@ -40,11 +40,12 @@ Step & Script & What it does & Status\\
 \midrule
 0 & \var{build\_news\_price\_dataset.py} & Cleans the FNSPID news and matches each (ticker, article) to a trading day and its prices $\rightarrow$ \var{news\_price\_matched.csv} & \done\\
 -- & \var{headline\_classifier.py} & Regex rules that tag price-report headlines & \done\\
-5b & \var{05b\_news\_daily\_panel\_matched.py} & Article counts per ticker per trading day, Dec 2017 -- Feb 2020, raw and filtered & \done\\
+5b & \var{05b\_news\_daily\_panel\_matched.py} & Article counts per ticker per trading day, Feb 2017 -- Feb 2020, raw and filtered & \done\\
 7 & \var{07\_central\_panel.py} & Joins news counts with daily prices; builds daily, weekly (7-day) and monthly (30-day) panels & \done\\
 8 & \var{08\_sort\_by\_time.py} & Sorts each panel by period, then ticker (one cross-section per block) & \done\\
 check & \var{analysis.py} & Reconciles prices across the three sources & \done\\
 9 & \var{09\_sec\_controls.py} & Book equity, market equity, earnings flags from SEC bulk files & \done\\
+10 & (planned) & Sentiment of each headline (positive / negative / neutral), counted per ticker-week & \todo\\
 -- & (Stata) & Merge SEC controls, build AbnAttn, proxies, run FM & \todo\\
 \midrule
 1--4, 5, 6 & earlier scripts & Weekly panel 2009--2023, annual cross-section, raw-file daily panel, news-only blocks & \supd\\
@@ -54,7 +55,9 @@ check & \var{analysis.py} & Reconciles prices across the three sources & \done\\
 
 Flow: raw news + daily prices $\rightarrow$ matched news (step 0) $\rightarrow$ daily news counts (5b) $\rightarrow$ central panels with prices (7) $\rightarrow$ time-sorted (8) $\rightarrow$ + SEC controls by \var{ticker}+\var{block} (9, merged in Stata).
 
-\textbf{Sample window: March 2018 -- February 2020}, chosen because 2018--2019 has the most tickers with continuous news coverage in FNSPID. Pre-sample periods before March 2018 are kept only to build lagged / moving-average variables.
+\textbf{Sample window: March 2018 -- February 2020}, chosen because 2018--2019 has the most tickers with continuous news coverage in FNSPID. Pre-sample periods before March 2018 are kept only to build lagged / rolling-window variables (52 weeks for the weekly panel, Section~\ref{sec:blocks}).
+
+\textbf{Update 17 Nov 2026:} weekly panels extended back 52 weeks (to 4 Mar 2017) with daily-return helper columns; a 180-day gap rule now blanks fake returns from stale pre-IPO price rows; weekly SEC controls rebuilt to match; weekly panels now stored gzipped. Details in Sections~\ref{sec:5b}, \ref{sec:blocks}, \ref{sec:gap} and \ref{sec:step9}.
 
 %==========================================================
 \section{Source data}
@@ -98,13 +101,13 @@ Script \var{headline\_classifier.py}. Purpose: remove news that \emph{reports} t
 Rules are regular expressions, checked by hand on samples. Effect on the sample: 16.1\% of articles removed (weekly panel, Mar 2018 -- Feb 2020: 1,139,097 raw vs.\ 955,153 filtered). The filter works on headlines only, not article text.
 
 %==========================================================
-\section{Step 5b: daily news panel}
+\section{Step 5b: daily news panel}\label{sec:5b}
 
 Script \var{05b\_news\_daily\_panel\_matched.py}; input \var{news\_price\_matched.csv}.
 \begin{itemize}
   \item Date = the matched \emph{trading} day, so the news panel lines up with the price files.
-  \item Window: trading days 1 Dec 2017 -- 28 Feb 2020 (Dec 2017 -- Feb 2018 is a pre-sample baseline).
-  \item Two outputs, \var{news\_daily\_raw} and \var{news\_daily\_filtered}: 1,273,181 vs.\ 1,071,095 articles (617,031 vs.\ 548,734 ticker-days with news).
+  \item Window: trading days 1 Feb 2017 -- 28 Feb 2020 (Feb 2017 -- Feb 2018 is pre-sample history; extended from Dec 2017 on 17 Nov 2026 for the 52-week weekly windows).
+  \item Two outputs, \var{news\_daily\_raw} and \var{news\_daily\_filtered}: 1,586,716 vs.\ 1,344,847 articles (776,485 vs.\ 696,384 ticker-days with news). Of the matched articles, 241,869 are price reports (15.2\%) and 42,432 event-plus-price.
   \item Sparse: a row exists only for ticker-days with at least one article. Zeros are filled in step 7.
 \end{itemize}
 
@@ -115,16 +118,16 @@ Script \var{07\_central\_panel.py} (run in batches \var{0 3}, \var{1 3}, \var{2 
 
 \subsection{Rows and coverage}
 \begin{itemize}
-  \item One row per ticker per trading day (or block) on which the ticker has a price, for every ticker in the news data: 5,521 tickers.
+  \item One row per ticker per trading day (or block) on which the ticker has a price, for every ticker with at least one article from Dec 2017 on: 5,521 tickers (the same set in all three panels; the longer weekly history adds no tickers).
   \item \var{covered} = 1 if the day lies between the ticker's first and last article in the whole news history. Outside that window the scraper did not collect news, so ``no article'' is not a real zero (issue \#4).
   \item \var{n\_articles}: count of articles; \textbf{0} on no-news days inside coverage, \textbf{blank} outside it (about 4\% of sample rows). For blocks, blank unless every trading day in the block is covered.
 \end{itemize}
 
-\subsection{Time blocks}
+\subsection{Time blocks}\label{sec:blocks}
 \begin{itemize}
   \item Fixed, non-overlapping runs of consecutive calendar days, starting Saturday 3 Mar 2018. \textbf{Week} = 7 days (Saturday--Friday, so weekend news counts toward the next trading week); \textbf{month} = 30 days.
   \item Complete blocks only: 104 weeks (3 Mar 2018 -- 28 Feb 2020) and 24 months (3 Mar 2018 -- 20 Feb 2020).
-  \item \textbf{Pre-sample} (\var{pre\_sample} = 1): 3 periods before the first cross-section, so a moving average over the previous 3 periods exists from period 1. Daily: 26--28 Feb 2018. Weekly: blocks $-2..0$ (10 Feb -- 2 Mar 2018). Monthly: blocks $-2..0$ (3 Dec 2017 -- 2 Mar 2018). Analysis sample: \var{pre\_sample} = 0.
+  \item \textbf{Pre-sample} (\var{pre\_sample} = 1): periods before the first cross-section, kept so lagged and rolling-window variables exist from period 1. \textbf{Weekly: 52 weeks, blocks $-51..0$ (4 Mar 2017 -- 2 Mar 2018)}, set by the longest window in the model (52-week volatility); the 12-week size and momentum windows and the 3-week attention average fit inside it. Daily: 3 trading days (26--28 Feb 2018). Monthly: blocks $-2..0$ (3 Dec 2017 -- 2 Mar 2018). Analysis sample: \var{pre\_sample} = 0.
 \end{itemize}
 
 \subsection{Columns}
@@ -132,7 +135,8 @@ Script \var{07\_central\_panel.py} (run in batches \var{0 3}, \var{1 3}, \var{2 
 \begin{tabularx}{\textwidth}{@{}l L@{}}
 \toprule
 Daily & \var{open, high, low, close, adj\_close, volume}; \var{ret} = close-to-close return on \var{adj\_close}; \var{bad\_px} = 1 if $|\text{ret}| > 100\%$ (broken split adjustment, issue \#12); \var{covered}; \var{n\_articles}\\
-Weekly / monthly & \var{block, block\_start, block\_end}; \var{ret} = compounded daily returns (last close of previous block $\rightarrow$ last close of this block); \var{open\_start} (open on first trading day), \var{high} (max), \var{low} (min), \var{close\_end, adj\_close\_end}, \var{volume} (sum), \var{dollar\_volume} (sum of close $\times$ volume), \var{n\_days}, \var{n\_zero\_vol}, \var{bad\_px} (any day), \var{covered}, \var{n\_articles} (sum)\\
+Weekly / monthly & \var{block, block\_start, block\_end, pre\_sample}; \var{ret} = compounded daily returns (last close of previous block $\rightarrow$ last close of this block); \var{open\_start} (open on first trading day), \var{high} (max), \var{low} (min), \var{close\_end, adj\_close\_end}, \var{volume} (sum), \var{dollar\_volume} (sum of close $\times$ volume), \var{n\_days}, \var{n\_zero\_vol}, \var{bad\_px} (any day), \var{covered}, \var{n\_articles} (sum)\\
+Weekly only & \var{ret\_d\_sum}, \var{ret\_d\_sq\_sum}, \var{n\_ret}: sum, sum of squares and count of the week's daily returns. SD of daily returns over any run of weeks $= \sqrt{(S_2 - S_1^2/n)/(n-1)}$ with $S_1, S_2, n$ summed over those weeks (checked: identical to the SD computed directly from the price files)\\
 \bottomrule
 \end{tabularx}
 \end{center}
@@ -144,15 +148,18 @@ Weekly / monthly & \var{block, block\_start, block\_end}; \var{ret} = compounded
 Panel & Rows & Pre-sample rows & Tickers & Sample periods & Articles (raw, sample)\\
 \midrule
 Daily & 2,708,604 & 15,509 & 5,521 & 504 trading days & 1,144,062\\
-Weekly & 574,195 & 15,553 & 5,521 & 104 weeks & 1,139,097\\
+Weekly & 823,449 & 264,807 & 5,521 & 104 weeks & 1,139,097\\
 Monthly & 144,618 & 15,543 & 5,519 & 24 months & 1,121,034\\
 \bottomrule
 \end{tabular}
 \end{center}
-Article totals differ slightly because blocks keep only complete blocks and blank out partly covered ones. Rows with \var{bad\_px} = 1 in the sample: 510 daily, 463 weekly, 316 monthly.
+Article totals differ slightly because blocks keep only complete blocks and blank out partly covered ones. Rows with \var{bad\_px} = 1 in the sample: 499 daily, 452 weekly, 305 monthly. The weekly pre-sample covers 5,217 tickers and 400,019 articles.
+
+\subsection{Gap rule for daily returns}\label{sec:gap}
+A daily return is left blank when the previous price row is more than 180 calendar days earlier. Some price files carry stale rows from long before an IPO or from an earlier user of the ticker (gaps of 263--956 days in the data), which produced fake first-week returns (e.g.\ VEL $+$108,233\%, NET, TXG, VIR at their 2019 IPOs). Thinly traded funds can go weeks between trades (gaps up to about 80 days); those returns are real and are kept. Effect: 17 block returns changed in each of the weekly and monthly sample periods, 14 of which had been flagged \var{bad\_px}; every other price and count is identical to the previous build.
 
 \subsection{Step 8 and storage}
-\var{08\_sort\_by\_time.py} re-sorts each panel by period, then ticker, so each period is one contiguous cross-section (values read and written as text, nothing reformatted). The daily panels (276 MB each) are stored on GitHub gzipped (85 MB); pandas reads the \var{.gz} directly; for Stata, unzip it first (e.g.\ 7-Zip).
+\var{08\_sort\_by\_time.py} re-sorts each panel by period, then ticker, so each period is one contiguous cross-section (values read and written as text, nothing reformatted). The daily (276 MB) and weekly (135 MB) panels are stored on GitHub gzipped (85 MB and 45 MB); pandas reads the \var{.gz} directly; for Stata, unzip first (e.g.\ 7-Zip).
 
 %==========================================================
 \section{Price reconciliation check}
@@ -165,7 +172,7 @@ Article totals differ slightly because blocks keep only complete blocks and blan
 \end{itemize}
 
 %==========================================================
-\section{Step 9: SEC controls (book equity, market equity, earnings)}
+\section{Step 9: SEC controls (book equity, market equity, earnings)}\label{sec:step9}
 
 Script \var{09\_sec\_controls.py}, stages: \var{index}; \var{names} (4 batches); \var{match}; \var{facts} (8 batches, plus \var{new}); \var{subs} (8 batches, plus \var{new}); \var{build}. Outputs \var{sec\_controls\_\{weekly,monthly\}\_2018-03\_2020-02.csv}, one row per ticker-block of the panels. Merge in Stata on \var{ticker} + \var{block}.
 
@@ -175,7 +182,7 @@ Only information public by the block's last day is used.
   \item \var{book\_equity}: \var{StockholdersEquity} (fallback: the tag including non-controlling interest) from the latest 10-Q/10-K filed on or before \var{block\_end}.
   \item \var{shares\_out}: cover-page share count (share classes summed), fallback balance-sheet count, then weighted-average basic shares; latest filed on or before \var{block\_end}.
   \item \var{market\_equity} = \var{shares\_out} $\times$ \var{split\_factor} $\times$ \var{close\_end}. Book-to-market = \var{book\_equity} / \var{market\_equity}.
-  \item \var{earn\_8k} = 1 if an earnings-release 8-K (Item 2.02) was filed in the block; \var{filing\_10qk} = 1 if a 10-Q/10-K was filed in the block.
+  \item \var{earn\_8k} = 1 if an earnings-release 8-K (Item 2.02) was filed in the block; \var{filing\_10qk} = 1 if a 10-Q/10-K was filed in the block. Both are \textbf{blank} for weekly blocks before Nov 2017: filing histories were read from Nov 2017 on, so earlier weeks are unknown, not zero. They are only needed from period 1.
 \end{itemize}
 
 \subsection{Split correction}
@@ -199,7 +206,7 @@ FNSPID prices are adjusted for splits up to about July 2020; SEC share counts ar
 
 \subsection{Coverage and flags}
 \begin{itemize}
-  \item 68.5\% of ticker-blocks matched; book equity present in 54\%, market equity in 58\% of all ticker-blocks.
+  \item 68.5\% of ticker-blocks matched; book equity present in 54\%, market equity in 58\% of all ticker-blocks. The weekly file now has 823,449 rows (one per weekly panel row, including the 52 pre-sample weeks); its rows for the earlier blocks are unchanged.
   \item \var{foreign\_filer} = 1 (files 20-F/40-F; share count may be ordinary shares, not ADRs, e.g.\ BABA): 11.7\% of matched rows. \var{cik\_shared} = 1 (several tickers on one filer, mostly ETF trusts): 3.2\%. Market equity is unreliable for both; drop them.
   \item After dropping both flags: 3,209 firms; book equity present 84.8\%, market equity 85.3\%. B/M median 0.43 (1st--99th percentile $-0.62$ to 3.69); about 5\% negative book equity.
   \item Earnings: 6.0\% of weeks and 24.3\% of months have \var{earn\_8k} = 1. About a quarter of matched firms never file Item 2.02 8-Ks; for them use \var{filing\_10qk} (rougher: a 10-Q often comes after the announcement).
@@ -209,6 +216,7 @@ FNSPID prices are adjusted for splits up to about July 2020; SEC share counts ar
 \subsection{Stata merge}
 {\footnotesize
 \begin{verbatim}
+* the weekly panel is stored as .csv.gz: unzip it first (7-Zip)
 import delimited "Panel Build/data/sec_controls_weekly_2018-03_2020-02.csv", clear asdouble
 tempfile sec
 save `sec'
@@ -241,6 +249,30 @@ Step & What it built & Why superseded\\
 \end{center}
 
 %==========================================================
+\section{Step 10 (planned): headline sentiment}\label{sec:sentiment}
+
+\textbf{Goal.} Label each headline in the \emph{filtered} weekly panel positive, negative or neutral, then count per ticker-week: \var{agg\_positive}, \var{agg\_negative}, \var{agg\_neutral}. Check: the three sum to \var{n\_articles} in every row (with an \var{agg\_unscored} column if any headline has no score, so a gap is visible rather than silently breaking the sum). About 1.34 million filtered headlines, Mar 2017 -- Feb 2020.
+
+\textbf{Status.} On hold while we look for FNSPID's own GPT-scored sentiment files. The original plan (the FNSPID GPT-3.5 script, scores 1--5) cannot run in this setup: OpenAI and HuggingFace are not reachable from here and the script needs a paid API key.
+
+\textbf{Method options}, in the order I would use them:
+\begin{center}\small
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.2cm} L L@{}}
+\toprule
+Method & Strengths & Weaknesses\\
+\midrule
+1. FNSPID pre-scored GPT sentiment (if found) & Same source as our news; scores 1--5 map to 3 buckets (1--2 negative, 3 neutral, 4--5 positive); no compute & Coverage may not include all our tickers / dates; scored on article summaries, not headlines; GPT output not exactly reproducible\\
+2. FinBERT (Araci, 2019; Huang, Wang \& Yang, 2023) & Finance-trained language model; three classes natively (positive / negative / neutral), so no bucket merging; free and reproducible; handles negation and context better than word lists & Needs the model download from HuggingFace: run it on your own machine or Google Colab, not here. 1.3M headlines is a few hours on a laptop CPU, much less on a Colab GPU\\
+3. Loughran--McDonald dictionary (Loughran \& McDonald, 2011) & The standard finance word lists; transparent and fully reproducible; runs here in minutes (\var{pysentiment2} is installable); rule: more positive than negative words $\Rightarrow$ positive, and vice versa & Headlines are short, so many score neutral; no negation (``not profitable''); misses context\\
+4. GPT-style LLM on headlines (Lopez-Lira \& Tang, 2023, \emph{Can ChatGPT Forecast Stock Price Movements?}) & Closest published precedent for headline-level LLM scores and return prediction & Paid API, 1.3M calls; results depend on the model version\\
+5. VADER (Hutto \& Gilbert, 2014) & Fast, handles negation and intensity & Built for social media, not finance wording\\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Recommendation.} Use a learned model as the main measure (FinBERT, or the FNSPID GPT scores if their coverage is good) and Loughran--McDonald as a robustness check: if both give the same sign for the attention--return result, the result does not hinge on one scoring method. An independent audit of a random sample of headlines (agreement rate, list of ambiguous headlines) goes into this section once scores exist.
+
+%==========================================================
 \section{Known data problems still open}
 
 From \var{DATASET\_ISSUES.md}, the ones that affect our sample:
@@ -257,7 +289,7 @@ From \var{DATASET\_ISSUES.md}, the ones that affect our sample:
 
 \begin{itemize}
   \item \todo{} \textbf{Abnormal attention}: $\mathbf{1}\{\text{NetAttn}_{i,t} > \text{average of the previous 3 periods}\}$ (or the continuous log version), from \var{n\_articles} of the filtered panel, using the pre-sample rows.
-  \item \todo{} \textbf{Firm proxies}: Vol (SD of daily returns), Size (log average dollar volume, or log market equity from step 9), MOM (compounded return, skipping the latest period). Windows need about 12 periods of history, but the panels carry only 3 pre-sample periods; the earlier prices come from \var{full\_history.zip}.
+  \item \todo{} \textbf{Firm proxies} (construct in Stata): Vol (SD of daily returns over 52 weeks, from the helper columns), Size (log average dollar volume, or log market equity from step 9), MOM (compounded weekly \var{ret}, $t-11$ to $t-2$). \textbf{Weekly: all inputs are now in the panel from week 1.} Monthly still has only 3 pre-sample blocks, so 12-month windows there would need the same extension.
   \item \decide{} \textbf{Risk control}: total volatility vs.\ market beta (shrunk, estimated through $t-1$) vs.\ both. SPY is in the price files.
   \item \decide{} \textbf{Horizon}: weekly (104 cross-sections) or monthly (24) as the main specification; the other as robustness. Proxy windows count in that horizon's units.
   \item \decide{} \textbf{Earnings amounts}: net income (for E/P, no split issue) and/or EPS (needs the split factor) are not pulled yet.
